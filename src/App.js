@@ -7,14 +7,14 @@ import Adminprotected from './protected/AdminProtect';
 import Package from './dashboard/More/Package/Package';
 import PopUp from './componets/popupBox/PopUpRed';
 import Protected from './protected/Protected';
-import Purchasereturn from './dashboard/Purchase/Purchasereturn';
+// import Purchasereturn from './dashboard/Purchase/Purchasereturn';
 import SaleView from './dashboard/Sale/SaleBill/saleView/SaleView';
 import {
   BrowserRouter as Router,
   Switch,
   Route,
 } from "react-router-dom";
-import AddPurchaseReturn from './dashboard/Purchase/AddPurchaseReturn';
+// import AddPurchaseReturn from './dashboard/Purchase/AddPurchaseReturn';
 import Catagory from './dashboard/More/Catagory/Catagory';
 import Itemmaster from './dashboard/ItemMaster/Itemmaster';
 import PurchaseView from './dashboard/Purchase/PurchaseBill/Purchase-View/Purchase_View';
@@ -99,9 +99,24 @@ import CssBaseline from '@mui/material/CssBaseline'; // Reset default styles
 import { ThemeProvider } from '@material-tailwind/react';
 import theme from './theme';
 import { useEffect } from 'react';
+import OnlineOrders from './dashboard/profile/Settings/OnlineOrders';
+import OnlineDashboard from './dashboard/OnlineDashboard';
+import LoginSignup from './componets/Login/LoginSignup';
 
 function App() {
+  const goFullScreen = () => {
+    const elem = document.documentElement;
+
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen(); // Safari
+    } else if (elem.msRequestFullscreen) {
+      elem.msRequestFullscreen(); // IE11
+    }
+  };
   useEffect(() => {
+    
     // Inject CSS to style all MUI TextField components
     const style = document.createElement('style');
     style.innerHTML = `
@@ -192,10 +207,19 @@ function App() {
         <Router>
           <Switch>
             <Route exact path='/'>
-              <Login />
+            <LoginSignup />
+            </Route>
+            <Route path='/Register/:referralCode'>
+            <LoginSignup />
             </Route>
             <Route path='/Register'>
-              <SignUp />
+            <LoginSignup />
+            </Route>
+            <Route path='/login/:referralCode'>
+              <LoginSignup />
+            </Route>
+            <Route path='/login'>
+              <LoginSignup />
             </Route>
             <Route path='/forgotPassword'>
               <Forgot />
@@ -203,6 +227,12 @@ function App() {
             <Route path='/admindashboard'>
               <Protected>
                 <Dashboard />
+              </Protected>
+              <Adminprotected />
+            </Route>
+            <Route path='/onlinedashboard'>
+              <Protected>
+                <OnlineDashboard/>
               </Protected>
               <Adminprotected />
             </Route>
@@ -332,14 +362,14 @@ function App() {
                 <AddReturnbill />
               </Protected>
             </Route>
-            <Route path='/purchase/purchasereturn'>
+            {/* <Route path='/purchase/purchasereturn'>
               <Purchasereturn />
-            </Route>
-            <Route path='/purchase/addPurchaseReturn'>
+            </Route> */}
+            {/* <Route path='/purchase/addPurchaseReturn'>
               <Protected>
                 <AddPurchaseReturn />
               </Protected>
-            </Route>
+            </Route> */}
             <Route path='/salelist'>
               <Salelist />
             </Route>
@@ -553,6 +583,11 @@ function App() {
             <Route path='/Staff-sessions/sessions'>
               <Protected>
                 <Sessions />
+              </Protected>
+            </Route>
+            <Route path='/settings/online-orders'>
+              <Protected>
+                <OnlineOrders />
               </Protected>
             </Route>
             <Route path='/add-roles'>

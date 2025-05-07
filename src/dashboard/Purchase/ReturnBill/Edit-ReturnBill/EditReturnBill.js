@@ -19,12 +19,15 @@ import Header from '../../../Header';
 import Loader from '../../../../componets/loader/Loader';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import '../Add-ReturnBill/AddReturnbill.css';
 import { VscDebugStepBack } from "react-icons/vsc";
 import { Prompt } from "react-router-dom/cjs/react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import { IoMdClose } from 'react-icons/io';
 import { Modal } from 'flowbite-react';
 import { FaCaretUp } from 'react-icons/fa6';
+import SaveIcon from '@mui/icons-material/Save';
+import SaveAsIcon from '@mui/icons-material/SaveAs';
 
 const EditReturnBill = () => {
     const history = useHistory();
@@ -37,7 +40,7 @@ const EditReturnBill = () => {
     const [mrp, setMRP] = useState()
     const [ptr, setPTR] = useState()
     const [billNo, setBillNo] = useState()
-    const [gst, setGst] = useState({ id: '', name: '' });
+    const [gst, setGst] = useState();
     const [selectedEditItemId, setSelectedEditItemId] = useState(null);
     const [open, setOpen] = useState(false);
     const [selectedOption, setSelectedOption] = useState(1);
@@ -106,9 +109,12 @@ const EditReturnBill = () => {
     const [totalNetRate, setTotalNetRate] = useState(0)
     const [totalMargin, setTotalMargin] = useState(0)
     const [margin, setMargin] = useState(0)
-    const [initialTotalStock, setInitialTotalStock] = useState(0); // or use null if you want
+    const [initialTotalStock, setInitialTotalStock] = useState(0);
     const [uniqueId, setUniqueId] = useState([])
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
 
+    const [billSaveDraft, setBillSaveDraft] = useState('0');
     const handleClose = () => {
         setIsDelete(false);
     };
@@ -118,36 +124,6 @@ const EditReturnBill = () => {
     const toggleModal = () => {
         setIsModalOpen(!isModalOpen);
     };
-
-    // useEffect(() => {
-    //     if (saveValue === false) {
-    //         unblockRef.current = history.block((location) => {
-    //             if (!isOpenBox) {
-    //                 setPendingNavigation(location);
-    //                 setIsOpenBox(true);
-    //                 setSaveValue(false);
-    //                 return false;
-    //             }
-    //         });
-    //         return () => {
-    //             if (unblockRef.current) {
-    //                 unblockRef.current();
-    //             }
-    //         };
-    //     }
-    // }, [saveValue, history, isOpenBox]);
-    // useEffect(() => {
-
-    //     const initialize = async () => {
-    //         try {
-    //             await handleLeavePage();
-    //         } catch (error) {
-    //             console.error("Error during initialization:", error);
-    //         }
-    //     };
-
-    //     initialize();
-    // }, []);
 
     useEffect(() => {
         const initializeData = async () => {
@@ -167,6 +143,61 @@ const EditReturnBill = () => {
     }, [id, isDeleteAll]); // Add only necessary dependencies
 
 
+
+    /*<============================================================================ Input ref on keydown enter ===================================================================> */
+
+    const [selectedIndex, setSelectedIndex] = useState(-1); // Index of selected row
+    const tableRef = useRef(null); // Reference for table container
+    const [isAutocompleteDisabled, setAutocompleteDisabled] = useState(true);
+
+    const inputRefs = useRef([]);
+    const dateRefs = useRef([]);
+
+    const submitButtonRef = useRef(null);
+    const addButtonref = useRef(null);
+
+    /*<============================================================ disable autocomplete to focus when tableref is focused  ===================================================> */
+
+
+    useEffect(() => {
+        const handleTableFocus = () => setAutocompleteDisabled(false);
+        const handleTableBlur = () => setAutocompleteDisabled(true);
+
+        if (tableRef.current) {
+            tableRef.current.addEventListener("focus", handleTableFocus);
+            tableRef.current.addEventListener("blur", handleTableBlur);
+        }
+
+        return () => {
+            if (tableRef.current) {
+                tableRef.current.removeEventListener("focus", handleTableFocus);
+                tableRef.current.removeEventListener("blur", handleTableBlur);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        const handleKeyPress = (e) => {
+            if (!tableData?.item_list?.length) return;
+
+            const isInputFocused = document.activeElement.tagName === "INPUT";
+
+            if (isInputFocused) return;
+
+            if (e.key === "ArrowDown") {
+                setSelectedIndex((prev) => Math.min(prev + 1, tableData.item_list.length - 1));
+            } else if (e.key === "ArrowUp") {
+                setSelectedIndex((prev) => Math.max(prev - 1, 0));
+            } else if (e.key === "Enter" && selectedIndex !== -1) {
+                const selectedRow = tableData.item_list[selectedIndex];
+                if (!selectedRow) return;
+                handleEditClick(selectedRow);
+            }
+        };
+
+        document.addEventListener("keydown", handleKeyPress);
+        return () => document.removeEventListener("keydown", handleKeyPress);
+    }, [tableData, selectedIndex]);
 
 
     useEffect(() => {
@@ -200,7 +231,7 @@ const EditReturnBill = () => {
             setFree(selectedEditItem.fr_qty);
             setPTR(selectedEditItem.ptr);
             setDisc(selectedEditItem.disocunt);
-            setGst(gstList.find(option => option.name === selectedEditItem.gst_name) || {});
+            setGst(selectedEditItem.gst_name);
             setLoc(selectedEditItem.location);
             setItemTotalAmount(selectedEditItem.amount)
         }
@@ -209,7 +240,7 @@ const EditReturnBill = () => {
     useEffect(() => {
         const totalSchAmt = parseFloat((((ptr * disc) / 100) * qty).toFixed(2));
         const totalBase = parseFloat(((ptr * qty) - totalSchAmt).toFixed(2));
-        const totalAmount = parseFloat((totalBase + (totalBase * gst.name / 100)).toFixed(2));
+        const totalAmount = parseFloat((totalBase + (totalBase * gst / 100)).toFixed(2));
         if (totalAmount) {
             setItemTotalAmount(totalAmount);
         } else {
@@ -218,7 +249,7 @@ const EditReturnBill = () => {
         if (isDeleteAll == false) {
             // restoreData();
         }
-    }, [ptr, qty, disc, gst.name, tempQty])
+    }, [ptr, qty, disc, gst, tempQty])
 
     const LogoutClose = () => {
         setIsOpenBox(false);
@@ -459,63 +490,7 @@ const EditReturnBill = () => {
         }
     };
 
-    // const returnBillEditID = async (distributors, value) => {
-    //     let data = new FormData();
-    //     data.append("purches_return_id", id == null ? id : id);
-    //     data.append("search", value ? value : "");
 
-    //     const params = {
-    //         purches_return_id: id,
-    //     };
-    //     try {
-    //         await axios.post("purches-return-edit-data?", data, {
-    //             // params: params,
-    //             headers: {
-    //                 Authorization: `Bearer ${token}`,
-    //             },
-    //         }
-    //         ).then((response) => {
-    //             const data = response.data.data;
-    //             setTableData(data);
-    //             setSelectedDate(data?.bill_date)
-    //             setFinalAmount(response.data.data?.final_amount)
-    //             setTotalAmount(response.data.data?.total_amount)
-    //             otherAmount ? setOtherAmount(otherAmount) : setOtherAmount(response.data.data?.other_amount)
-    //             setNetAmount(parseFloat(response.data.data?.total_amount) + parseFloat(response.data.data?.other_amount))
-    //             setTotalGST(response.data.data?.total_gst)
-    //             setTotalQty(response.data.data?.total_qty)
-    //             setTotalNetRate(response.data.data?.total_net_rate)
-    //             setTotalMargin(response.data.data?.total_margin)
-    //             setMargin(response.data.data?.total_margin)
-    //             setStartDate(response.data.data?.start_date);
-    //             setEndDate(response.data.data?.end_date)
-
-    //             if (!distributors || !Array.isArray(distributors)) {
-    //                 console.error("Distributors is not an array or undefined");
-    //                 return;
-    //             }
-    //             const foundDistributor = distributors.find(option => option.id == data.distributor_id);
-
-    //             // const foundDistributor = distributors.find(option => {
-    //             //     return option.id == data.distributor_id;
-    //             // });
-
-    //             setBillNo(data.bill_no || '');
-    //             // const parsedDate = parse(data.start_date , 'MM-yyyy', new Date());
-    //             // const formattedDate = format(parsedDate, 'MM-yyyy');
-
-    //             setRemark(data?.remark)
-
-    //             if (foundDistributor) {
-    //                 setDistributor(foundDistributor);
-    //             }
-    //         })
-    //     } catch (error) {
-    //         console.error("API error:", error);
-
-    //         setIsLoading(false);
-    //     }
-    // }
 
     const handleSchAmt = (e) => {
         // Get the input value as a string
@@ -550,6 +525,7 @@ const EditReturnBill = () => {
     }
 
     const handleEditClick = (item) => {
+
         const existingItem = uniqueId.find((obj) => obj.id === item.id);
 
         if (!existingItem) {
@@ -566,23 +542,11 @@ const EditReturnBill = () => {
         setSelectedEditItemId(item.id);
         setQty(item.qty)
         setInitialTotalStock(item.total_stock);
+        setIsEditMode(true);
+
 
     };
-    // const handleQty = (value) => {
 
-    //     const newQty = Number(value);
-
-    //     if (newQty > tempQty) {
-    //         setQty(tempQty);
-    //         toast.error(`Quantity exceeds the allowed limit. Max available: ${tempQty}`);
-    //     } else if (newQty < 0) {
-    //         setQty(tempQty);
-    //         toast.error(`Quantity should not be less than 0`);
-    //     } else {
-    //         setQty(newQty)
-    //     }
-
-    // }
     const handleQtyChange = (value) => {
         // const inputQty = Number(e.target.value);
         // setQty(inputQty);
@@ -614,6 +578,7 @@ const EditReturnBill = () => {
 
 
     const EditReturnItem = async () => {
+        setIsEditMode(false);
         setUnsavedItems(true)
 
         const newErrors = {};
@@ -632,8 +597,12 @@ const EditReturnBill = () => {
 
         if (!disc) newErrors.disc = 'Discount is required';
 
-        if (!gst.name) newErrors.gst = 'GST is required';
+        if (!gst) newErrors.gst = 'GST is required';
         // if (!loc) newErrors.loc = 'Location is required';
+ if (gst != 12 && gst != 18 && gst != 5 && gst != 28) {
+      newErrors.gst = "Enter valid GST";
+      toast.error("Enter valid GST")
+    };
 
         setErrors(newErrors);
         const isValid = Object.keys(newErrors).length === 0;
@@ -647,6 +616,13 @@ const EditReturnBill = () => {
     }
 
     const handleEditItem = async () => {
+        const gstMapping = {
+            28: 6,
+            18: 4,
+            12: 3,
+            5: 2,
+            0: 1
+          };
         let data = new FormData();
         data.append('purches_return_id', selectedEditItemId == null ? "0" : selectedEditItemId)
         data.append('iteam_id', itemPurchaseId == null ? "0" : itemPurchaseId)
@@ -657,7 +633,8 @@ const EditReturnBill = () => {
         data.append("fr_qty", free == null ? "0" : free)
         data.append("qty", qty == null ? "0" : qty)
         data.append("disocunt", disc == null ? "0" : disc)
-        data.append('gst', gst.id == null ? "0" : gst.id)
+        data.append("gst", gstMapping[gst] ?? gst);
+
         data.append('location', loc == null ? "0" : loc)
         data.append('amount', ItemTotalAmount == null ? "0" : ItemTotalAmount)
         data.append("weightage", unit == null ? "0" : unit)
@@ -707,7 +684,7 @@ const EditReturnBill = () => {
         setUnsavedItems(true)
         setItemId(Id);
     };
-    const handleReturnUpdate = (checkedItems) => {
+    const handleReturnUpdate = (draft) => {
 
         const newErrors = {};
         if (!distributor) {
@@ -726,13 +703,13 @@ const EditReturnBill = () => {
         if (Object.keys(newErrors).length > 0) {
             return;
         }
-        updatePurchaseRecord();
+        updatePurchaseRecord(draft);
         setIsOpenBox(false)
         setPendingNavigation(null);
         setUnsavedItems(false)
     }
 
-    const updatePurchaseRecord = async () => {
+    const updatePurchaseRecord = async (draft) => {
         let data = new FormData();
         data.append("distributor_id", distributor?.id);
         data.append("bill_no", billNo == null ? "0" : billNo);
@@ -751,6 +728,7 @@ const EditReturnBill = () => {
         data.append("purches_return", JSON.stringify(tableData?.item_list));
         data.append('id', id == null ? "0" : id)
         data.append('round_off', roundOff == null ? "0" : roundOff)
+        data.append("draft_save", !draft ? "1" : draft);
 
         const params = {
             id: id,
@@ -872,7 +850,8 @@ const EditReturnBill = () => {
                     padding: "0px 20px",
                     overflow: "auto",
                 }} >
-                    <ToastContainer />
+                      <ToastContainer
+ />
                     <div>
                         <div className='py-3 edit_purchs_pg' style={{ display: 'flex', gap: '4px' }}>
                             <div style={{ display: 'flex', whiteSpace: 'nowrap', gap: '7px', alignItems: "center" }}>
@@ -883,27 +862,45 @@ const EditReturnBill = () => {
                                 <BsLightbulbFill className="w-6 h-6 secondary hover-yellow" />
                             </div>
                             <div className="headerList ">
-                                {/* <Select
-                                    labelId="dropdown-label"
-                                    id="dropdown"
-                                    value={paymentType}
-                                    sx={{ minWidth: '200px' }}
-                                    onChange={(e) => { setPaymentType(e.target.value) }}
-                                    size="small"
-                                >
-                                    <MenuItem value="cash">Cash</MenuItem>
-                                    <MenuItem value="credit">Credit</MenuItem>
-                                    {bankData?.map(option => (
-                                        <MenuItem key={option.id} value={option.id}>{option.bank_name}</MenuItem>
-                                    ))}
-                                </Select> */}
+
                                 <Button
                                     style={{ background: 'var(--color1)' }}
                                     variant="contained"
                                     className='edt_btn_ps'
-                                    onClick={() => handleReturnUpdate(checkedItems)}  >
+
+                                    onClick={() => setIsOpen(!isOpen)} >
                                     Update
                                 </Button>
+                                {isOpen && (
+                                    <div className="absolute right-0 top-28 w-32 bg-white shadow-lg user-icon mr-4 ">
+                                        <ul className="transition-all ">
+
+                                            <li
+                                                onClick={() => {
+                                                    setBillSaveDraft("1")
+                                                    handleReturnUpdate("1")
+                                                }}
+                                                className=" border-t border-l border-r border-[var(--color1)] px-4 py-2 cursor-pointer text-base font-medium flex gap-2 hover:text-[white] hover:bg-[var(--color1)] flex  justify-around"
+                                            >
+                                                <SaveIcon />
+
+
+                                                Save
+                                            </li>
+                                            <li
+                                                onClick={() => {
+                                                    setBillSaveDraft("0")
+                                                    handleReturnUpdate("0")
+                                                }}
+                                                className="border border-[var(--color1)] px-4 py-2 cursor-pointer text-base font-medium flex gap-2 hover:text-[white] hover:bg-[var(--color1)] flex  justify-around"
+                                            >
+                                                <SaveAsIcon />
+
+                                                Draft
+                                            </li>
+                                        </ul>
+                                    </div>
+                                )}
 
                             </div>
                         </div>
@@ -912,19 +909,12 @@ const EditReturnBill = () => {
                                 <div className="detail custommedia" style={{
                                     display: "flex",
                                     flexDirection: "column",
-                                    width: "100%"
                                 }}>
                                     <span className="heading mb-2">Distributor</span>
                                     <Autocomplete
                                         disabled
                                         value={distributor}
-                                        sx={{
-                                            width: '100%',
-                                            // minWidth: '550px',
-                                            // '@media (max-width:600px)': {
-                                            //     minWidth: '300px',
-                                            // },
-                                        }}
+                                        sx={{ width: '350px' }}
                                         size='small'
                                         onChange={(e, value) => setDistributor(value)}
                                         options={distributorList}
@@ -937,22 +927,27 @@ const EditReturnBill = () => {
                                 <div className="detail custommedia" style={{
                                     display: "flex",
                                     flexDirection: "column",
-                                    width: "100%"
+
                                 }}>
                                     <span className="heading mb-2 ">Bill Date</span>
-                                    <div style={{ width: "100%" }}>
+                                    <div >
                                         <DatePicker
                                             className='custom-datepicker_mn '
                                             selected={selectedDate}
                                             onChange={(newDate) => setSelectedDate(newDate)}
                                             dateFormat="dd/MM/yyyy"
                                             disabled
-                                            sx={colors = "#BDBDBD"}
+
+                                            sx={{
+                                                width: '350px', colors: "#BDBDBD"
+
+                                            }}
                                             style={{
                                                 color: '#BDBDBD',
                                                 backgroundColor: '#F0F0F0',
                                                 border: '1px solid #BDBDBD',
                                                 cursor: 'not-allowed',
+                                                width: '350px'
                                             }}
                                         />
                                     </div>
@@ -960,14 +955,14 @@ const EditReturnBill = () => {
                                 <div className="detail custommedia" style={{
                                     display: "flex",
                                     flexDirection: "column",
-                                    width: "100%"
+
                                 }}>
                                     <span className="heading mb-2">Bill No</span>
                                     <TextField
                                         autoComplete="off"
                                         id="outlined-number"
                                         size="small"
-                                        sx={{ width: '100%' }}
+
                                         value={billNo}
                                         disabled
                                         onChange={(e) => { setBillNo(e.target.value) }}
@@ -978,17 +973,15 @@ const EditReturnBill = () => {
                                 <div className="detail custommedia" style={{
                                     display: "flex",
                                     flexDirection: "column",
-                                    width: "100%"
                                 }}>
                                     <span className="heading mb-2">Start Date</span>
-                                    <div style={{ width: "100%" }}>
+                                    <div >
                                         <TextField
                                             autoComplete="off"
 
                                             disabled
                                             id="outlined-number"
                                             size="small"
-                                            sx={{ width: '100%' }}
                                             value={startDate}
                                         />
                                         {/* <DatePicker
@@ -1011,10 +1004,10 @@ const EditReturnBill = () => {
                                 <div className="detail custommedia" style={{
                                     display: "flex",
                                     flexDirection: "column",
-                                    width: "100%"
+
                                 }}>
                                     <span className="heading mb-2">End Date</span>
-                                    <div style={{ width: "100%" }}>
+                                    <div>
                                         {/* <DatePicker
                                             className='custom-datepicker '
                                             selected={endDate}
@@ -1036,33 +1029,12 @@ const EditReturnBill = () => {
                                             disabled
                                             id="outlined-number"
                                             size="small"
-                                            sx={{ width: '100%' }}
+
                                             value={endDate}
                                         />
                                     </div>
                                 </div>
-                                <div className="detail custommedia" style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    width: "100%"
-                                }}>
-                                    <span className="heading mb-2">Remark</span>
-                                    <TextField
-                                        autoComplete="off"
-                                        id="outlined-number"
-                                        size="small"
-                                        sx={{
-                                            width: '100%',
-                                            // minWidth: '550px',
-                                            // '@media (max-width:600px)': {
-                                            //     minWidth: '300px',
-                                            // },
-                                        }}
 
-                                        value={remark}
-                                        onChange={(e) => { setRemark(e.target.value) }}
-                                    />
-                                </div>
                                 <div>
                                 </div>
                                 <div className='scroll-two'>
@@ -1085,13 +1057,49 @@ const EditReturnBill = () => {
                                         </thead>
                                         <tbody>
                                             <tr style={{ borderBottom: '1px solid lightgray' }}>
-                                                <td style={{ width: '500px' }}>
-                                                    <div >
-                                                        <DeleteIcon className='delete-icon' onClick={removeItem}
-                                                        />
-                                                        {searchItem}
-                                                    </div>
-                                                </td>
+                                                {!isEditMode ?
+                                                    <td style={{ width: '350px' }}>
+                                                        <div >
+                                                            <TextField
+                                                                autoComplete="off"
+                                                                id="outlined-basic"
+                                                                size="small"
+                                                                autoFocus
+                                                                sx={{ width: "350px" }}
+                                                                value={searchQuery}
+                                                                onChange={handleInputChange}
+                                                                variant="outlined"
+                                                                placeholder="Please search any items.."
+                                                                InputProps={{
+                                                                    endAdornment: (
+                                                                        <InputAdornment position="start">
+                                                                            <SearchIcon />
+                                                                        </InputAdornment>
+                                                                    ),
+                                                                    type: "search",
+                                                                }}
+                                                            />
+
+
+                                                        </div>
+
+                                                    </td> : <td style={{ width: '350px' }}>
+                                                        <div style={{ width: 350, padding: 0 }} >
+                                                            <BorderColorIcon
+                                                                style={{ color: "var(--color1)" }}
+                                                                onClick={() => setIsEditMode(false)}
+                                                            />
+                                                            <DeleteIcon
+                                                                className="delete-icon mr-2"
+                                                                onClick={removeItem}
+                                                            />
+                                                            <span className="font-semibold ">
+                                                                {searchItem}
+
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                }
                                                 <td>
                                                     <TextField
                                                         autoComplete="off"
@@ -1102,7 +1110,7 @@ const EditReturnBill = () => {
                                                         size="small"
                                                         error={!!errors.unit}
                                                         value={unit}
-                                                        sx={{ width: '130px' }}
+                                                        sx={{ width: '100px' }}
                                                         onChange={(e) => {
                                                             const value = e.target.value.replace(/[^0-9]/g, '');
                                                             setUnit(value ? Number(value) : "");
@@ -1122,7 +1130,7 @@ const EditReturnBill = () => {
                                                         autoComplete="off"
                                                         id="outlined-number"
                                                         size="small"
-                                                        sx={{ width: '130px' }}
+                                                        sx={{ width: '100px' }}
                                                         disabled
 
                                                         // inputRef={inputRef3}
@@ -1139,7 +1147,7 @@ const EditReturnBill = () => {
                                                         autoComplete="off"
                                                         id="outlined-number"
                                                         size="small"
-                                                        sx={{ width: '130px' }}
+                                                        sx={{ width: '100px' }}
                                                         disabled
 
                                                         // inputRef={inputRef3}
@@ -1155,7 +1163,7 @@ const EditReturnBill = () => {
                                                         autoComplete="off"
                                                         id="outlined-number"
                                                         type="number"
-                                                        sx={{ width: '130px' }}
+                                                        sx={{ width: '100px' }}
                                                         size="small"
                                                         disabled
                                                         // inputRef={inputRef4}
@@ -1184,7 +1192,7 @@ const EditReturnBill = () => {
                                                         autoComplete="off"
                                                         id="outlined-number"
                                                         type="number"
-                                                        sx={{ width: '130px' }}
+                                                        sx={{ width: '100px' }}
                                                         size="small"
                                                         // inputRef={inputRef5}
                                                         // onKeyDown={handleKeyDown}
@@ -1215,7 +1223,7 @@ const EditReturnBill = () => {
                                                         id="outlined-number"
                                                         size="small"
                                                         type="number"
-                                                        sx={{ width: '130px' }}
+                                                        sx={{ width: '100px' }}
                                                         value={free}
                                                         // inputRef={inputRef6}
                                                         // error={!!errors.free}
@@ -1240,7 +1248,7 @@ const EditReturnBill = () => {
                                                         autoComplete="off"
                                                         id="outlined-number"
                                                         type="number"
-                                                        sx={{ width: '130px' }}
+                                                        sx={{ width: '100px' }}
                                                         size="small"
                                                         // inputRef={inputRef7}
                                                         // onKeyDown={handleKeyDown}
@@ -1266,7 +1274,7 @@ const EditReturnBill = () => {
                                                     <TextField
                                                         autoComplete="off"
                                                         id="outlined-number"
-                                                        sx={{ width: '130px' }}
+                                                        sx={{ width: '100px' }}
                                                         size="small"
                                                         type="number"
                                                         // inputRef={inputRef8}
@@ -1292,24 +1300,27 @@ const EditReturnBill = () => {
                                                     />
                                                 </td>
                                                 <td>
-                                                    <Select
+                                                    <TextField
                                                         labelId="dropdown-label"
                                                         id="dropdown"
-                                                        value={gst.name}
-                                                        sx={{ width: '130px' }}
-                                                        onChange={(e) => {
-                                                            const selectedOption = gstList.find(option => option.name === e.target.value);
-                                                            setGst(selectedOption);
+                                                        value={gst}
+                                                        sx={{ width: '100px' }}
+                                                        onKeyDown={(e) => {
+                                                            if (
+                                                                ['e', 'E', '+', '-', ','].includes(e.key) ||
+                                                                (e.key === '.' && e.target.value.includes('.'))
+                                                            ) {
+                                                                e.preventDefault();
+                                                            }
                                                         }}
+                                                        onChange={(e) => setGst(e.target.value)}
+
                                                         size="small"
                                                         displayEmpty
                                                         error={!!errors.gst}
                                                     >
-                                                        {gstList.map(option => (
-                                                            <MenuItem key={option.id} value={option.name}>{option.name}</MenuItem>
-                                                        ))}
-                                                    </Select>
 
+                                                    </TextField>
                                                 </td>
                                                 <td>
                                                     <TextField
@@ -1320,8 +1331,14 @@ const EditReturnBill = () => {
                                                         size="small"
                                                         value={loc}
                                                         // error={!!errors.loc}
-                                                        sx={{ width: '130px' }}
+                                                        sx={{ width: '100px' }}
                                                         onChange={(e) => { setLoc(e.target.value) }}
+                                                        onKeyDown={async (e) => {
+                                                            if (e.key === 'Enter') {
+                                                                await EditReturnItem();
+
+                                                            }
+                                                        }}
                                                     />
                                                 </td>
                                                 {/* <td className="total"><span>{ItemTotalAmount}</span></td> */}
@@ -1330,12 +1347,12 @@ const EditReturnBill = () => {
                                             </tr>
                                             <tr style={{ borderBottom: '1px solid lightgray' }} >
                                                 <td>
-                                                    <TextField
+                                                    {/* <TextField
                                                         autoComplete="off"
                                                         id="outlined-basic"
                                                         size="small"
                                                         autoFocus
-                                                        sx={{ width: "200px", marginTop: "5px" }}
+                                                        sx={{ width: "350px", marginTop: "5px" }}
                                                         value={searchQuery}
                                                         onChange={handleInputChange}
                                                         variant="outlined"
@@ -1348,23 +1365,30 @@ const EditReturnBill = () => {
                                                             ),
                                                             type: "search",
                                                         }}
-                                                    />
+                                                    /> */}
                                                 </td>
 
                                                 <td colSpan={10}></td>
                                                 <td >
-                                                    <Button variant="contained"
+                                                    {/* <Button variant="contained"
                                                         style={{ background: 'var(--color1)' }}
                                                         onClick={EditReturnItem}
-                                                    ><EditIcon sx={{ fontSize: 18 }} />Edit</Button>
+                                                    ><EditIcon sx={{ fontSize: 18 }} />Edit</Button> */}
                                                 </td>
                                             </tr>
 
-
-
-                                            {tableData?.item_list?.map((item) => (
-                                                <tr key={item.id} className="item-List border-b border-gray-400" onClick={() => handleEditClick(item)}>
-                                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                        </tbody>
+                                    </table>
+                                    <table className="p-30 border border-indigo-600 w-full border-collapse custom-table" ref={tableRef} tabIndex={0}>
+                                        <tbody>
+                                            {tableData?.item_list?.map((item, index) => (
+                                                <tr key={item.id} onClick={() => {
+                                                    setSelectedIndex(index)
+                                                    handleEditClick(item)
+                                                }}
+                                                    className={`cursor-pointer ${index === selectedIndex ? "highlighted-row" : ""}`}
+                                                >
+                                                    <td style={{ whiteSpace: 'nowrap', width: '400px', textAlign: 'left' }}>
                                                         <Checkbox
                                                             sx={{
                                                                 color: "var(--color2)", // Color for unchecked checkboxes
@@ -1394,88 +1418,9 @@ const EditReturnBill = () => {
                                                     <td>{item.amount}</td>
                                                 </tr>
                                             ))}
-
-
-
                                         </tbody>
                                     </table>
-                                    {/* <div className="flex gap-10 justify-end mt-5 flex-wrap "  >
-                                        <div style={{ display: 'flex', gap: '25px', flexDirection: 'column' }}>
-                                            <div>
-                                                <label className="font-bold">Total GST : </label>
-                                            </div>
-                                            <div>
-                                                <label className="font-bold">Total Qty : </label>
-                                            </div>
-                                            
-                                        </div>
-                                        <div class="totals mr-5" style={{ display: 'flex', gap: '25px', flexDirection: 'column', alignItems: "end" }}>
 
-                                            <div class="totals mr-5" style={{ display: 'flex', gap: '25px', flexDirection: 'column', alignItems: "end" }}>
-                                                <span style={{ fontWeight: 600 }}>{totalGST}</span>
-                                                <span style={{ fontWeight: 600 }}>{totalQty}</span>
-                                               
-
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '25px', flexDirection: 'column' }}>
-                                            <div>
-                                                <label className="font-bold">Total Amount : </label>
-                                            </div>
-
-                                            <div>
-                                                <label className="font-bold">Other Amount: </label>
-                                            </div>
-                                            
-
-                                            <div>
-                                                <label className="font-bold">Net Rate : </label>
-                                            </div>
-                                            <div>
-                                                <label className="font-bold">Round Off : </label>
-                                            </div>
-                                            <div>
-                                                <label className="font-bold" >Net Amount : </label>
-                                            </div>
-                                        </div>
-                                        <div class="totals mr-5" style={{ display: 'flex', gap: '20px', flexDirection: 'column', alignItems: "end" }}>
-
-                                            <div>
-                                                <span style={{ fontWeight: 600 }}>{totalAmount ? totalAmount : 0}</span>
-                                            </div>
-                                            
-                                            <div>
-                                                <Input
-                                                    type="number"
-                                                    value={otherAmount}
-                                                    onChange={handleOtherAmount}
-                                                    size="small"
-                                                    style={{
-                                                        width: "70px",
-                                                        background: "none",
-                                                        borderBottom: "1px solid gray",
-                                                        justifyItems: "end",
-                                                        outline: "none",
-                                                    }} sx={{
-                                                        '& .MuiInputBase-root': {
-                                                            height: '35px',
-                                                        },
-                                                        "& .MuiInputBase-input": { textAlign: "end" }
-
-                                                    }} />
-                                            </div>
-                                           
-                                            <div className='mt-2'>
-                                                <span style={{ fontWeight: 600, }}>{totalNetRate}</span>
-                                            </div>
-                                            <div className='mt-1'>
-                                                <span style={{ fontWeight: 600, }} >{roundOff === "0.00" ? roundOff : (roundOff < 0.49 ? `- ${roundOff}` : `${parseFloat(1 - roundOff).toFixed(2)}`)}</span>
-                                            </div>
-                                            <div>
-                                                <span style={{ fontWeight: 600, fontSize: '22px' }} className='primary ' >{!netAmount ? 0 : netAmount}</span>
-                                            </div>
-                                        </div>
-                                    </div> */}
                                 </div>
 
 

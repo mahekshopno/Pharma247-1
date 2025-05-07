@@ -13,6 +13,8 @@ import {
   TextField,
 } from "@mui/material";
 import ControlPointIcon from "@mui/icons-material/ControlPoint";
+import SaveIcon from '@mui/icons-material/Save';
+import SaveAsIcon from '@mui/icons-material/SaveAs';
 import { useHistory } from "react-router-dom/cjs/react-router-dom.min";
 import { FaPlusCircle } from "react-icons/fa";
 import { MenuItem, Select } from "@mui/material";
@@ -25,6 +27,8 @@ import "react-datepicker/dist/react-datepicker.css";
 import { toast, ToastContainer } from "react-toastify";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
+import { FaUserAlt } from "react-icons/fa";
+
 import {
   Dialog,
   DialogActions,
@@ -43,6 +47,8 @@ import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import { Modal } from "flowbite-react";
 import { FaCaretUp } from "react-icons/fa6";
 import { IoMdClose } from "react-icons/io";
+import { Link } from "react-router-dom";
+
 const debounce = (func, delay) => {
   let timeout;
   return (...args) => {
@@ -52,21 +58,10 @@ const debounce = (func, delay) => {
 
 };
 
+let debounceTimeout;
+
+
 const AddPurchaseBill = () => {
-  const searchItemField = useRef(null);
-  const inputRef1 = useRef();
-  const inputRef2 = useRef();
-  const inputRef3 = useRef();
-  const inputRef4 = useRef();
-  const inputRef5 = useRef();
-  const inputRef6 = useRef();
-  const inputRef7 = useRef();
-  const inputRef8 = useRef();
-  const inputRef9 = useRef();
-  const inputRef10 = useRef();
-  const inputRef11 = useRef();
-  const inputRef12 = useRef();
-  const inputRef13 = useRef();
 
   const [ItemPurchaseList, setItemPurchaseList] = useState({ item: [] });
   const [totalMargin, setTotalMargin] = useState(0);
@@ -124,7 +119,7 @@ const AddPurchaseBill = () => {
   const [batchListData, setBatchListData] = useState([]);
   const [openAddPopUp, setOpenAddPopUp] = useState(false);
   const [openAddItemPopUp, setOpenAddItemPopUp] = useState(false);
-
+  const [openAddDistributorPopUp, setOpenAddDistributorPopUp] = useState(false);
   const [selectedRows, setSelectedRows] = useState([]);
   const [purchaseReturnPending, setPurchaseReturnPending] = useState([]);
   const [finalPurchaseReturnList, setFinalPurchaseReturnList] = useState([]);
@@ -146,6 +141,12 @@ const AddPurchaseBill = () => {
   const [addUnit, setAddUnit] = useState("");
   const [barcodeBatch, setBarcodeBatch] = useState("");
 
+
+  const [addDistributorName, setAddDistributorName] = useState("");
+  const [addDistributorNo, setAddDistributorNo] = useState("");
+  const [addDistributorMobile, setAddDistributorMobile] = useState("");
+  const [addDistributorAddress, setAddDistributorAddress] = useState("");
+
   const [highlightedRowId, setHighlightedRowId] = useState(null);
   const [isVisible, setIsVisible] = useState(true);
 
@@ -158,6 +159,8 @@ const AddPurchaseBill = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [isOpen, setIsOpen] = useState(false);
+  const [billSaveDraft, setBillSaveDraft] = useState('1');
+
 
   const paymentOptions = [
     { id: 1, label: "Cash" },
@@ -169,85 +172,140 @@ const AddPurchaseBill = () => {
     { id: 7, label: "RTGS/NEFT" },
   ];
 
+  const options = {
+  "Skyway": "purchase-item-import",
+    "Pharma Byte": "pharmabyte-item-import",
+    "Marg ERP": "mahalaxmi-item-import",
+    "Techno Max": "techno-item-import",
+  };
+
   const [errors, setErrors] = useState({});
   const [paymentType, setPaymentType] = useState("credit");
   const [bankData, setBankData] = useState([]);
   const [id, setId] = useState(null);
+  const [importConpany, setImportConpany] = useState("");
+
   let defaultDate = new Date();
   defaultDate.setDate(defaultDate.getDate() + 3);
-
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
   };
-  /*<================================================================================ Input ref on keydown enter  =======================================================================> */
+
+  /*<=============================================================================== Input ref on keydown enter ======================================================================> */
 
   const [selectedIndex, setSelectedIndex] = useState(-1); // Index of selected row
   const tableRef = useRef(null); // Reference for table container
-
   const inputRefs = useRef([]);
+  const submitButtonRef = useRef(null);
+  const addButtonref = useRef(null);
 
-  // Handle key presses for navigating rows
-  const handleKeyPress = (e) => {
-    // setTableFocus(true);
-    const key = e.key;
-    if (key === "ArrowDown") {
-      // Move selection down
-      setSelectedIndex((prev) =>
-        prev < ItemPurchaseList.item.length - 1 ? prev + 1 : prev
-      );
-    } else if (key === "ArrowUp") {
-      // Move selection up
-      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
-    } else if (key === "Enter" && selectedIndex !== -1) {
-      // Confirm selection
 
-      const selectedRow = ItemPurchaseList.item[selectedIndex];
-      setSelectedEditItemId(selectedRow.id);
-
-      handleEditClick(ItemPurchaseList.item[selectedIndex])
-
-    }
-  };
+  /*<================================================================ disable autocomplete to focus when tableref is focused  =======================================================> */
 
   useEffect(() => {
-    const currentRef = tableRef.current;
-    if (currentRef) {
-      currentRef.focus(); // Ensure focus for capturing key events
-      currentRef.addEventListener("keydown", handleKeyPress);
+    const handleTableFocus = () => setAutocompleteDisabled(false);
+    const handleTableBlur = () => setAutocompleteDisabled(true);
+
+    if (tableRef.current) {
+      tableRef.current.addEventListener("focus", handleTableFocus);
+      tableRef.current.addEventListener("blur", handleTableBlur);
     }
 
     return () => {
-      if (currentRef) {
-        currentRef.removeEventListener("keydown", handleKeyPress);
+      if (tableRef.current) {
+        tableRef.current.removeEventListener("focus", handleTableFocus);
+        tableRef.current.removeEventListener("blur", handleTableBlur);
       }
     };
-  }, [selectedIndex, ItemPurchaseList]);
+  }, []);
 
+  /*<================================================================ disable autocomplete to focus when tableref is focused  =======================================================> */
 
 
   useEffect(() => {
-    if (selectedIndex >= 0) {
-      setSelectedEditItemId(ItemPurchaseList.item[selectedIndex]?.id || null);
-    }
+    const handleKeyPress = (e) => {
+      if (!ItemPurchaseList?.item?.length) return; // Prevent errors if list is empty
+
+      const key = e.key;
+
+      // Check if any input field inside inputRefs is focused
+      const isInputFocused = inputRefs.current.some(
+        (input) => input && document.activeElement === input
+      );
+
+      if (isInputFocused) return; // Prevent key navigation when an input is focused
+
+      if (key === "ArrowDown") {
+        // Move selection down
+        setSelectedIndex((prev) =>
+          prev < ItemPurchaseList.item.length - 1 ? prev + 1 : prev
+        );
+      } else if (key === "ArrowUp") {
+        // Move selection up
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+      } else if (key === "Enter" && selectedIndex !== -1) {
+        // Prevent Enter action if any input is focused
+        if (!isInputFocused) {
+          const selectedRow = ItemPurchaseList.item[selectedIndex];
+          if (!selectedRow) return;
+
+          setSelectedEditItemId(selectedRow.id);
+          handleEditClick(selectedRow);
+
+          if (inputRefs.current[2]) {
+            inputRefs.current[2].focus();
+          }
+        }
+
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyPress);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyPress);
+    };
   }, [selectedIndex, ItemPurchaseList]);
+
+  /*<================================================================================== handle shortcut  =========================================================================> */
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === "s") {
-        event.preventDefault(); // Prevent the browser's save dialog
-
-        handleSubmit(); // Call your function
+      const key = event.key.toLowerCase();
+  
+      // Allow shortcuts only when Alt or AltGr is pressed
+      const isAltCombo = event.altKey || (event.ctrlKey && event.altKey);
+      if (!isAltCombo || event.repeat) return;
+  
+      event.preventDefault();
+  
+      switch (key) {
+        case "s":
+          setBillSaveDraft("1");
+          handleSubmit();
+          break;
+        case "g":
+          handleSubmit();
+          break;
+        case "m":
+          inputRefs.current[2]?.focus();
+          break;
+        default:
+          break;
       }
     };
-
+  
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [distributor, billNo, ItemPurchaseList]);
+  
+// Dependencies only affect Alt+S
+
 
   const handleKeyDown = (event, index) => {
 
@@ -261,6 +319,17 @@ const AddPurchaseBill = () => {
     }
   };
 
+  /*<================================================================================ handle popup =======================================================================> */
+
+  useEffect(() => {
+    if (openAddItemPopUp) {
+      setTimeout(() => {
+        if (inputRefs.current[13]) {
+          inputRefs.current[13].focus();
+        }
+      }, 100); // Adjust delay if necessary
+    }
+  }, [openAddItemPopUp]);
   /*<================================================================================ PTR and MRP validation =======================================================================> */
 
   useEffect(() => {
@@ -325,16 +394,18 @@ const AddPurchaseBill = () => {
   /*<================================================================== Clear old purchase item if user leave the browswer ==========================================================> */
 
   useEffect(() => {
+    /*<========================================================================== Calculate discount ===============================================================================> */
+
     const totalSchAmt = parseFloat((((ptr * disc) / 100) * qty).toFixed(2));
     setSchAmt(totalSchAmt);
 
-    /*<=========================================================================== Calculate totalBase ================================================================================> */
+    /*<========================================================================= Calculate totalBase ==============================================================================> */
 
     const totalBase = parseFloat((ptr * qty - totalSchAmt).toFixed(2));
     setItemTotalAmount(0);
     setBase(totalBase);
 
-    /*<============================================================================= Calculate totalAmount ==============================================================================> */
+    /*<=========================================================================== Calculate totalAmount ============================================================================> */
 
     const totalAmount = parseFloat(
       (totalBase + (totalBase * gst) / 100).toFixed(2)
@@ -345,13 +416,11 @@ const AddPurchaseBill = () => {
       setItemTotalAmount(0);
     }
 
-    /*<======================================================================================= Net Rate calculation ====================================================================> */
+    /*<===================================================================================== Net Rate calculation ==================================================================> */
 
     const numericQty = parseFloat(qty) || 0;
     const numericFree = parseFloat(free) || 0;
-    const netRate = parseFloat(
-      (totalAmount / (numericQty + numericFree)).toFixed(2)
-    );
+    const netRate = parseFloat((totalAmount / (numericQty + numericFree)).toFixed(2));
     setNetRate(netRate);
 
     /*<================================================================================= Margin calculation =========================================================================> */
@@ -395,7 +464,6 @@ const AddPurchaseBill = () => {
     }
   };
 
-
   /*<============================================================================ expiry date validation =========================================================================> */
 
   const handleExpiryDate = (event) => {
@@ -416,7 +484,7 @@ const AddPurchaseBill = () => {
     setExpiryDate(inputValue);
   };
 
-  /*<================================================================================= select file to upload =========================================================================> */
+  /*<=============================================================================== select file to upload =======================================================================> */
 
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files[0];
@@ -430,54 +498,80 @@ const AddPurchaseBill = () => {
     }
   };
 
-  /*<=================================================================================== upload selected file =======================================================================> */
-
+  /*<================================================================================== upload selected file ======================================================================> */
   const handleFileUpload = async () => {
     generateRandomNumber();
-
-    if (file) {
-      let data = new FormData();
-      data.append("file", file);
-      data.append("random_number", localStorage.getItem("RandomNumber"));
-
-      const params = {
-        random_number: localStorage.getItem("RandomNumber"),
-      };
-
-      setIsLoading(true);
-      try {
-        await axios
-          .post("purchase-item-upload", data, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          })
-          .then((response) => {
-            toast.success(response.data.message);
-            setOpenFile(false);
-            setIsLoading(false);
-            setUnsavedItems(true);
-            itemPurchaseList();
-          });
-      } catch (error) {
-        setIsLoading(false);
-        console.error("API error:", error);
-      }
-    } else {
+    if (!file) {
       toast.error("No file selected");
+      return;
+    }
+
+    const apiEndpoint = options[importConpany];
+    if (!apiEndpoint) {
+      toast.error("Invalid option selected");
+      return;
+    }
+
+    let data = new FormData();
+    data.append("file", file);
+    data.append("random_number", localStorage.getItem("RandomNumber"));
+
+    setIsLoading(true);
+    try {
+      const response = await axios.post(apiEndpoint, data, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      toast.success(response.data.message);
+      setIsLoading(false);
+      setUnsavedItems(true);
+      itemPurchaseList();
+      inputRefs.current[2]?.focus();
+      setOpenFile(false);
+    } catch (error) {
+      setIsLoading(false);
+      console.error("API error:", error);
     }
   };
 
-  /*<================================================================================ download selected file =============================================================================> */
+  /*<============================================================================ download selected file =========================================================================> */
 
   const handleDownload = () => {
+ 
+    let fileName = "";
+    let filePath = "";
+  
+    switch (importConpany) {
+      case "Skyway":
+        fileName = "Skyway.csv";
+        filePath = "/Skyway.csv";
+        break;
+      case "Pharma Byte":
+        fileName = "Pharma Byte.csv";
+        filePath = "/Pharma Byte.csv";
+        break;
+      case "Marg ERP":
+        fileName = "Marg ERP.csv";
+        filePath = "/Marg ERP.csv";
+        break;
+      case "Techno Max":
+        fileName = "Techno Max.csv";
+        filePath = "/Techno Max.csv";
+        break;
+      default:
+        console.warn("Unknown company selected. Downloading default file.");
+        toast.error("Unknown company selected. Downloading default file.");
+        break;
+    }
+  
     const link = document.createElement("a");
-    link.href = "/purchase_add_sample.csv";
-    link.download = "purchase_add_sample.csv";
+    link.href = filePath;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
+  
 
   /*<============================================================================ barcode functionality =========================================================================> */
 
@@ -488,7 +582,7 @@ const AddPurchaseBill = () => {
       return;
     }
 
-    /*<============================================================================ get barcode batch list =========================================================================> */
+    /*<=========================================================================== get barcode batch list ========================================================================> */
 
     try {
       const res = axios.post("barcode-batch-list?", { barcode: barcode },
@@ -499,7 +593,6 @@ const AddPurchaseBill = () => {
           },
         }
       ).then((response) => {
-        console.log(response.data.data[0]?.batch_list[0], "response")
 
         setTimeout(() => {
           const handleBarcodeItem = async () => {
@@ -623,7 +716,7 @@ const AddPurchaseBill = () => {
             const params = {
               id: selectedEditItemId,
             };
-            /*<========================================================================== call add item api to add barcode item  ===================================================================> */
+            /*<======================================================================= call add item api to add barcode item  ================================================================> */
 
             try {
               const response = await axios.post("item-purchase", data, {
@@ -705,7 +798,7 @@ const AddPurchaseBill = () => {
     }
   };
 
-  /*<================================================================================ Generate random number   ========================================================================> */
+  /*<============================================================================ Generate random number   ====================================================================> */
 
   const generateRandomNumber = () => {
     if (localStorage.getItem("RandomNumber") == null) {
@@ -717,7 +810,7 @@ const AddPurchaseBill = () => {
     }
   };
 
-  /*<================================================================================ Get GST List   =================================================================================> */
+  /*<============================================================================= Get GST List   ==============================================================================> */
 
   let listOfGst = () => {
     axios
@@ -738,7 +831,7 @@ const AddPurchaseBill = () => {
       });
   };
 
-  /*<================================================================================ Get Distributor List   =================================================================================> */
+  /*<========================================================================== Get Distributor List   ===========================================================================> */
 
   let listDistributor = () => {
     axios
@@ -756,7 +849,7 @@ const AddPurchaseBill = () => {
       });
   };
 
-  /*<================================================================================ Get Item purchase List   =================================================================================> */
+  /*<========================================================================= Get Item purchase List   ==========================================================================> */
 
   const itemPurchaseList = async () => {
     let data = new FormData();
@@ -787,7 +880,7 @@ const AddPurchaseBill = () => {
     }
   };
 
-  /*<========================================================================= disable to select date of past  ====================================================================> */
+  /*<======================================================================= disable to select date of past  ==================================================================> */
 
   const isDateDisabled = (date) => {
     const today = new Date();
@@ -797,14 +890,14 @@ const AddPurchaseBill = () => {
     return date > today;
   };
 
-  /*<========================================================================= delete added  item  ====================================================================> */
+  /*<============================================================================= delete added  item  ========================================================================> */
 
   const deleteOpen = (Id) => {
     setIsDelete(true);
     setItemId(Id);
   };
 
-  /*<========================================================================= get batch list to select item while add  ====================================================================> */
+  /*<================================================================= get batch list to select item while add  ============================================================> */
 
   const batchList = async () => {
     let data = new FormData();
@@ -880,6 +973,7 @@ const AddPurchaseBill = () => {
     // }
 
     if (!qty) newErrors.unit = "Qty is required";
+
     if (!expiryDate) {
       newErrors.expiryDate = "Expiry date is required";
       toast.error(newErrors.expiryDate);
@@ -903,6 +997,8 @@ const AddPurchaseBill = () => {
     }
     if (!mrp) {
       newErrors.mrp = "MRP is required";
+      toast.error(newErrors.expiryDate);
+
     }
     if (!ptr) {
       newErrors.ptr = "PTR is required";
@@ -910,7 +1006,15 @@ const AddPurchaseBill = () => {
       newErrors.ptr = "PTR must be less than or equal to MRP";
       toast.error("PTR must be less than or equal to MRP");
     }
-    if (!gst) newErrors.gst = "GST is required";
+    if (!gst) {
+      newErrors.gst = "GST is required";
+      toast.error("GST is required")
+    };
+    if (gst != 12 && gst != 18 && gst != 5 && gst != 28) {
+      newErrors.gst = "Enter valid GST";
+      toast.error("Enter valid GST")
+    };
+
     if (!searchItem) {
       toast.error("Please Select any Item Name");
       newErrors.searchItem = "Select any Item Name";
@@ -930,8 +1034,10 @@ const AddPurchaseBill = () => {
   };
 
   /*<========================================================================= Add and Edit item function  ====================================================================> */
-
+  
+  let debounce = true;
   const handleAddItem = async () => {
+
     setItemAutofoucs(true);
 
     setUnsavedItems(true);
@@ -957,8 +1063,6 @@ const AddPurchaseBill = () => {
         data.append("unit_id", Number(value.unit_id));
       }
     }
-
-
 
     data.append("random_number", localStorage.getItem("RandomNumber"));
     data.append("weightage", unit ? Number(unit) : 1);
@@ -1032,21 +1136,65 @@ const AddPurchaseBill = () => {
       setUnsavedItems(false);
     }
   };
+  /*<========================================================================= Add new disrtibutor to item master  ====================================================================> */
 
-  /*<========================================================================= Add new item to item master  ====================================================================> */
+  const handleAddNewDistributor = async () => {
 
-  const handleAddNewItem = async () => {
-    if (!addItemName && !addUnit && !addBarcode) {
+    if (!addDistributorAddress && !addDistributorMobile && !addDistributorName && addDistributorNo) {
+      toast.error("Please fill all the fields");
       return;
     }
+    let data = new FormData();
+    data.append("gst_number", addDistributorNo);
+    data.append("distributor_name", addDistributorName);
+    data.append("mobile_no", addDistributorMobile);
+    data.append("area", addDistributorAddress);
 
+
+    try {
+      const response = await axios.post("create-distributer", data, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.status === 200) {
+
+        setAddDistributorAddress("");
+        addDistributorMobile("")
+        addDistributorName("")
+        addDistributorNo("")
+        inputRefs.current[2].focus();
+        toast.success("Item Distributor successfully");
+
+      } else if (response.data.status === 400) {
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      setUnsavedItems(false);
+
+      if (error.response && error.response.status === 400) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error("Please try again later");
+      }
+    }
+  };
+
+  /*<======================================================================== Add new item to item master  ===================================================================> */
+
+  const handleAddNewItem = async () => {
+
+    if (!addItemName && !addUnit && !addBarcode) {
+      toast.error("Please fill all the fields");
+      return;
+    }
     let formData = new FormData();
     formData.append("item_name", addItemName ? addItemName : "");
     formData.append("unite", addUnit ? addUnit : "");
     formData.append("weightage", addUnit ? addUnit : "");
     formData.append("pack", addUnit ? "1*" + addUnit : "");
     formData.append("barcode", addBarcode ? addBarcode : "");
-
     formData.append("packaging_id", "");
     formData.append("drug_group", "");
     formData.append("gst", "");
@@ -1075,6 +1223,13 @@ const AddPurchaseBill = () => {
       if (response.data.status === 200) {
 
         setOpenAddItemPopUp(false);
+        setOpenAddDistributorPopUp(false);
+        setAddItemName("")
+        setAddBarcode("")
+        setAddUnit("")
+        inputRefs.current[2].focus();
+        toast.success("Item added successfully");
+
       } else if (response.data.status === 400) {
         toast.error(response.data.message);
       }
@@ -1089,7 +1244,7 @@ const AddPurchaseBill = () => {
     }
   };
 
-  /*<=================================================================================== search item name  ==============================================================================> */
+  /*<=============================================================================== search item name  ==========================================================================> */
 
   const handleSearch = async () => {
     let data = new FormData();
@@ -1115,7 +1270,7 @@ const AddPurchaseBill = () => {
     }
   };
 
-  /*<=========================================================================== select row using up down arrow  ======================================================================> */
+  /*<======================================================================== select row using up down arrow  ===================================================================> */
 
   const handleRowSelect = (id, totalAmount) => {
     const newSelectedRows = selectedRows.includes(id)
@@ -1137,53 +1292,8 @@ const AddPurchaseBill = () => {
     }
   };
 
-  const handleMouseEnter = (e) => {
-    const hoveredRow = e.currentTarget;
-    setHighlightedRowId(hoveredRow.getAttribute("data-id"));
-  };
 
-
-  const handleTableKeyDown = (e) => {
-
-    const rows = Array.from(
-      tableRef.current?.querySelectorAll("tr.cursor-pointer") || []
-    );
-    let currentIndex = rows.findIndex((row) => row === document.activeElement);
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      if (rows.length > 0) {
-        const nextIndex = currentIndex + 1 < rows.length ? currentIndex + 1 : 0;
-        rows[nextIndex]?.focus();
-        setHighlightedRowId(rows[nextIndex]?.getAttribute("data-id"));
-      }
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      if (rows.length > 0) {
-        const prevIndex =
-          currentIndex - 1 >= 0 ? currentIndex - 1 : rows.length - 1;
-        rows[prevIndex]?.focus();
-        setHighlightedRowId(rows[prevIndex]?.getAttribute("data-id"));
-      }
-    }
-
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (currentIndex >= 0 && rows[currentIndex]) {
-        const itemId = rows[currentIndex].getAttribute("data-id");
-        const item = ItemPurchaseList.find(
-          (item) => String(item.id) === String(itemId)
-        );
-        if (item) {
-          setHighlightedRowId(itemId);
-          handleEditClick(item);
-        }
-      }
-    }
-  };
-
-  /*<================================================================================= delete added item  ============================================================================> */
+  /*<=============================================================================== delete added item  ==========================================================================> */
 
   const handleDeleteItem = async (ItemId) => {
     if (!ItemId) return;
@@ -1213,14 +1323,12 @@ const AddPurchaseBill = () => {
 
   /*<============================================================================== submit purchase bill  ==========================================================================> */
 
-  const submitPurchaseData = async () => {
+  const submitPurchaseData = async (draft) => {
+
     let data = new FormData();
     data.append("distributor_id", distributor?.id);
     data.append("bill_no", billNo);
-    data.append(
-      "bill_date",
-      selectedDate ? format(selectedDate, "yyyy-MM-dd") : ""
-    );
+    data.append("bill_date", selectedDate ? format(selectedDate, "yyyy-MM-dd") : "");
     data.append("due_date", dueDate ? format(dueDate, "yyyy-MM-dd") : "");
     data.append("owner_type", localStorage.getItem("UserName"));
     data.append("user_id", localStorage.getItem("userId"));
@@ -1235,6 +1343,7 @@ const AddPurchaseBill = () => {
     data.append("round_off", roundOffAmount?.toFixed(2));
     data.append("purches_data", JSON.stringify(ItemPurchaseList.item));
     data.append("purches_return_data", JSON.stringify(finalPurchaseReturnList));
+    data.append("draft_save", !draft ? "1" : draft);
 
     try {
       await axios
@@ -1258,10 +1367,9 @@ const AddPurchaseBill = () => {
     }
   };
 
-/*<============================================================================== validation  purchase bill  ==========================================================================> */
+  /*<=========================================================================== validation  purchase bill  =======================================================================> */
 
-  const handleSubmit = () => {
-
+  const handleSubmit = (draft) => {
     const newErrors = {};
     if (!distributor) {
       newErrors.distributor = "Please select Distributor";
@@ -1280,7 +1388,7 @@ const AddPurchaseBill = () => {
     if (Object.keys(newErrors).length > 0) {
       return;
     }
-    submitPurchaseData();
+    submitPurchaseData(draft);
     setUnsavedItems(false);
   };
 
@@ -1308,14 +1416,14 @@ const AddPurchaseBill = () => {
   }, [selectedEditItem]);
 
 
-  /*<============================================================================== validation  purchase bill  ==========================================================================> */
+  /*<=========================================================================== validation  purchase bill  =======================================================================> */
 
   const handleEditClick = (item) => {
-
     setSelectedEditItem(item);
     setIsEditMode(true);
     setSelectedEditItemId(item.id)
     setSelectedEditItemId(item.id);
+    inputRefs.current[3]?.focus();
   };
 
   const purchaseReturnData = async () => {
@@ -1345,7 +1453,6 @@ const AddPurchaseBill = () => {
   const handelAddOpen = () => {
     setUnsavedItems(true);
     setOpenAddPopUp(true);
-
     purchaseReturnData();
   };
 
@@ -1354,6 +1461,7 @@ const AddPurchaseBill = () => {
   const handelAddItemOpen = () => {
     setUnsavedItems(true);
     setOpenAddItemPopUp(true);
+    setFocusedField("add item");
   };
 
   /*<============================================================================== close CN Adjust popup  ==========================================================================> */
@@ -1368,6 +1476,8 @@ const AddPurchaseBill = () => {
   };
 
   /*<============================================================================== Distributor select  ==========================================================================> */
+  useEffect(() => {
+  }, [distributor]);
 
   const handleDistributorSelect = (event, newValue) => {
     setDistributor(newValue);
@@ -1391,7 +1501,6 @@ const AddPurchaseBill = () => {
     setSearchItem(itemName);
 
     setId(newValue?.id);
-    setAutocompleteDisabled(true);
     handleSearch(itemName);
   };
 
@@ -1442,9 +1551,7 @@ const AddPurchaseBill = () => {
     setLoc("");
   };
 
-  /*<================================================================================== select all CN Bill ==============================================================================> */
-
-
+  /*<============================================================================== select all CN Bill ==========================================================================> */
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
@@ -1467,7 +1574,7 @@ const AddPurchaseBill = () => {
     }
   };
 
-  /*<================================================================================== CN Amount Calculation ==============================================================================> */
+  /*<============================================================================= CN Amount Calculation =========================================================================> */
 
   const handleCnAmountChange = (id, value, totalAmount) => {
     const numericValue = parseFloat(value) || 0;
@@ -1667,8 +1774,8 @@ const AddPurchaseBill = () => {
                 }}
                 size="small"
               >
-                <MenuItem value="cash">Cash</MenuItem>
-                <MenuItem value="credit">Credit</MenuItem>
+                <MenuItem className=" hover:bg-[var(--color1)]" value="cash">Cash</MenuItem>
+                <MenuItem className=" hover:bg-[var(--color1)]" value="credit">Credit</MenuItem>
                 {bankData?.map((option) => (
                   <MenuItem key={option.id} value={option.id}>
                     {option.bank_name}
@@ -1680,8 +1787,7 @@ const AddPurchaseBill = () => {
                 style={{ backgroundColor: "var(--color1)" }}
                 onClick={() => {
                   setOpenFile(true);
-                }}
-              >
+                }}>
                 <CloudUploadIcon className="mr-2" />
                 Import CSV
               </Button>
@@ -1724,12 +1830,43 @@ const AddPurchaseBill = () => {
               <Button
                 variant="contained"
                 style={{ background: "var(--color1)" }}
-                onClick={handleSubmit}
+                onClick={() => setIsOpen(!isOpen)}
+                ref={submitButtonRef}
               >
                 Save
               </Button>
 
             </div>
+            {isOpen && (
+              <div className="absolute right-0 top-28 w-32 bg-white shadow-lg user-icon mr-4 ">
+                <ul className="transition-all ">
+
+                  <li
+                    onClick={() => {
+                      setBillSaveDraft("1")
+                      handleSubmit("1")
+                    }}
+                    className=" border-t border-l border-r border-[var(--color1)] px-4 py-2 cursor-pointer text-base font-medium flex gap-2 hover:text-[white] hover:bg-[var(--color1)] flex  justify-around"
+                  >
+                    <SaveIcon />
+
+
+                    Save
+                  </li>
+                  <li
+                    onClick={() => {
+                      setBillSaveDraft("0")
+                      handleSubmit("0")
+                    }}
+                    className="border border-[var(--color1)] px-4 py-2 cursor-pointer text-base font-medium flex gap-2 hover:text-[white] hover:bg-[var(--color1)] flex  justify-around"
+                  >
+                    <SaveAsIcon />
+
+                    Draft
+                  </li>
+                </ul>
+              </div>
+            )}
           </div>
           {/*<============================================================================== details at top  =============================================================================> */}
 
@@ -1742,7 +1879,7 @@ const AddPurchaseBill = () => {
                     <FaPlusCircle
                       className="primary cursor-pointer"
                       onClick={() => {
-                        history.push("../../more/addDistributer");
+                        setOpenAddDistributorPopUp(true)
                       }}
                     />
                   </span>
@@ -1767,11 +1904,8 @@ const AddPurchaseBill = () => {
                         {...params}
                         inputRef={(el) => (inputRefs.current[0] = el)}
                         onKeyDown={(e) => handleKeyDown(e, 0)}
-
                       />
-
-                    )}
-                  />
+                    )} />
                   {error.distributor && (
                     <span style={{ color: "red", fontSize: "12px" }}>
                       {error.distributor}
@@ -1803,6 +1937,7 @@ const AddPurchaseBill = () => {
                     style={{ width: "250px" }}
                     value={billNo}
                     onChange={(e) => {
+
                       setbillNo(e.target.value.toUpperCase());
                     }}
                     inputRef={(el) => (inputRefs.current[1] = el)}
@@ -1864,17 +1999,27 @@ const AddPurchaseBill = () => {
                   />
                 </div>
               </div>
-              {/*<============================================================================ add Item field  ===========================================================================> */}
 
-              <div className="overflow-x-auto ">
+              {/*<====================================================================== add Item field =====================================================================> */}
+
+              <div className="overflow-x-auto w-full">
 
                 <table
-
-                  className="customtable  w-full border-collapse custom-table"
+                  className="customtable  w-full  border-collapse custom-table"
                 >
                   <thead>
                     <tr>
-                      <th>Search Item Name</th>
+                      <th >
+                        <div className="flex justify-center items-center gap-2">
+                          Search Item Name
+                          <FaPlusCircle
+                            className="primary cursor-pointer"
+                            onClick={() => {
+                              setOpenAddItemPopUp(true)
+                            }} />
+                        </div>
+
+                      </th>
                       <th>Unit</th>
                       {/* <th>HSN</th> */}
                       <th>Batch </th>
@@ -1912,8 +2057,8 @@ const AddPurchaseBill = () => {
                       <>
                         <tr>
                           {isEditMode ? (
-                            <td>
-                              <div>
+                            <td className="p-0"  >
+                              <div style={{ width: 350, padding: 0 }} >
                                 <BorderColorIcon
                                   style={{ color: "var(--color1)" }}
                                   onClick={() => setIsEditMode(false)}
@@ -1933,50 +2078,61 @@ const AddPurchaseBill = () => {
                               )}
                             </td>
                           ) : (
-                            <td className="p-0">
-                              {isAutocompleteDisabled && (
-                                <Autocomplete
-                                  key={autocompleteKey}
-                                  value={selectedOption}
-                                  // value={searchItem?.iteam_name}
-                                  sx={{ width: 200, padding: 0 }}
-                                  size="small"
-                                  onChange={handleOptionChange}
-                                  onInputChange={handleInputChange}
-                                  // inputRef={searchItemField}
-                                  getOptionLabel={(option) =>
-                                    `${option.iteam_name} `
-                                  }
-                                  options={itemList}
-                                  renderOption={(props, option) => (
-                                    <ListItem {...props}>
-                                      <ListItemText
-                                        primary={`${option.iteam_name}`}
-                                        secondary={` ${option.stock === 0
-                                          ? `Unit: ${option.weightage}`
-                                          : `Pack: ${option.pack}`
-                                          } | MRP: ${option.mrp}  | Location: ${option.location
-                                          }  | Current Stock: ${option.stock}`}
-                                      />
-                                    </ListItem>)}
-                                  renderInput={(params) => (
-                                    <TextField
-                                      tabIndex={0}
+                            <td className="p-0" >
 
-                                      variant="outlined"
-                                      autoComplete="off"
-                                      sx={{ width: 200, padding: 0 }}
-                                      autoFocus={focusedField === "item"}
-                                      {...params}
-                                      value={searchItem?.iteam_name}
-                                      inputRef={(el) => (inputRefs.current[2] = el)}
-                                      onKeyDown={(e) => handleKeyDown(e, 2)}
-
+                              {isAutocompleteDisabled && (<Autocomplete
+                                key={autocompleteKey}
+                                value={selectedOption}
+                                // value={searchItem?.iteam_name}
+                                sx={{ width: 350, padding: 0 }}
+                                size="small"
+                                onChange={handleOptionChange}
+                                onInputChange={handleInputChange}
+                                // inputRef={searchItemField}
+                                getOptionLabel={(option) =>
+                                  `${option.iteam_name} `
+                                }
+                                options={itemList}
+                                renderOption={(props, option) => (
+                                  <ListItem {...props}>
+                                    <ListItemText
+                                      primary={`${option.iteam_name}`}
+                                      secondary={` ${option.stock === 0
+                                        ? `Unit: ${option.weightage}`
+                                        : `Pack: ${option.pack}`
+                                        } | MRP: ${option.mrp}  | Location: ${option.location
+                                        }  | Current Stock: ${option.stock}`}
                                     />
-                                  )}
-                                />
-                              )}
+                                  </ListItem>)}
+                                renderInput={(params) => (
+                                  <TextField
+                                    tabIndex={0}
+                                    variant="outlined"
+                                    autoComplete="off"
+                                    sx={{ width: 350, padding: 0 }}
+                                    // autoFocus={focusedField === "item"}
+                                    {...params}
+                                    // disabled={isAutocompleteDisabled}
+                                    disableOpenOnFocus
+                                    value={searchItem?.iteam_name}
+                                    inputRef={(el) => (inputRefs.current[2] = el)}
+                                    onKeyDown={(e) => {
+                                      if (!searchItem && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+                                        tableRef.current.focus();
+
+                                        setTimeout(() => {
+                                          document.activeElement.blur(); // Removes focus from the input
+                                        }, 0);
+                                      } else if(searchItem && selectedOption){
+                                        handleKeyDown(e, 2)
+
+                                      } 
+                                    }}
+                                  />
+                                )}
+                              />)}
                             </td>)}
+
                           <td>
                             <TextField
                               variant="outlined"
@@ -1986,7 +2142,7 @@ const AddPurchaseBill = () => {
                               size="small"
                               error={!!errors.unit}
                               value={unit}
-                              sx={{ width: "65px" }}
+                              sx={{ width: "80px" }}
 
                               onChange={(e) => {
                                 const value = e.target.value.replace(
@@ -2017,7 +2173,7 @@ const AddPurchaseBill = () => {
 
                               size="small"
                               value={batch}
-                              sx={{ width: "90px" }}
+                              sx={{ width: "100px" }}
 
                               onChange={(e) => {
                                 setBatch(e.target.value);
@@ -2037,7 +2193,7 @@ const AddPurchaseBill = () => {
                               autoComplete="off"
                               id="outlined-number"
                               size="small"
-                              sx={{ width: "80px" }}
+                              sx={{ width: "100px" }}
 
                               error={!!errors.expiryDate}
                               value={expiryDate}
@@ -2117,7 +2273,7 @@ const AddPurchaseBill = () => {
                               id="outlined-number"
                               size="small"
                               type="number"
-                              sx={{ width: "50px" }}
+                              sx={{ width: "60px" }}
                               value={free}
                               error={!!errors.free}
 
@@ -2171,7 +2327,7 @@ const AddPurchaseBill = () => {
                               variant="outlined"
                               autoComplete="off"
                               id="outlined-number"
-                              sx={{ width: "60px" }}
+                              sx={{ width: "65px" }}
                               size="small"
                               type="number"
 
@@ -2217,6 +2373,7 @@ const AddPurchaseBill = () => {
                               variant="outlined"
                               size="small"
                               value={gst}
+                              sx={{ width: "65px" }}
                               error={!!errors.gst}
                               inputRef={(el) => (inputRefs.current[11] = el)}
                               onKeyDown={(e) => handleKeyDown(e, 11)}
@@ -2228,7 +2385,7 @@ const AddPurchaseBill = () => {
                               }}
                               open={isOpen}
                               onOpen={() => setIsOpen(true)}
-                              onClose={() => setIsOpen(false)}
+                              onClose={() => (false)}
                             />
                           </td>
                           <td>
@@ -2248,10 +2405,14 @@ const AddPurchaseBill = () => {
                               }}
                               inputRef={(el) => (inputRefs.current[12] = el)}
 
-                              onKeyDown={async (e) => {
-                                if (e.key === 'Enter') {
-                                  await handleAddButtonClick();
-                                  handleKeyDown(e, 1)
+
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  if (debounceTimeout) clearTimeout(debounceTimeout); // Clear previous timeout
+                                  debounceTimeout = setTimeout(async () => {
+                                    await handleAddButtonClick();
+                                    handleKeyDown(e, 1);
+                                  }, 500); // Adjust debounce delay as needed
                                 }
                               }}
 
@@ -2290,30 +2451,28 @@ const AddPurchaseBill = () => {
                           </td>
                         </tr>
                       </>)}
+
                   </tbody>
                 </table>
                 < >
-                  {/*<=============================================================================== added Item  ==============================================================================> */}
+                  {/*<========================================================================= added Item  ========================================================================> */}
 
                   <table
-                    className="p-30  border border-indigo-600 w-full border-collapse custom-table"
+                    className="p-30 border border-indigo-600 w-full border-collapse custom-table"
                     ref={tableRef}
-                  // tabIndex={0}
-                  > <tbody>
-                      {ItemPurchaseList?.item?.map((item) => (
+                    tabIndex={0}
+                  >
+                    <tbody>
+                      {ItemPurchaseList?.item?.map((item, index) => (
                         <tr
                           key={item.id}
-                          onClick={() => handleEditClick(item)}
-                          className={` item-List  cursor-pointer saleTable ${item.id === selectedEditItemId
-                            ? "highlighted-row"
-                            : ""}`}>
-                          <td
-                            style={{
-                              display: "flex",
-                              gap: "8px",
-                              width: "400px"
-                            }}
-                          >
+                          onClick={() => {
+                            setSelectedIndex(index); // Ensure clicking sets the selected index
+                            handleEditClick(item);
+                          }}
+                          className={`item-List flex justify-between cursor-pointer ${index === selectedIndex ? "highlighted-row" : ""}`}
+                        >
+                          <td style={{ display: "flex", gap: "8px", width: "366px" }}>
                             <BorderColorIcon
                               style={{ color: "var(--color1)" }}
                               onClick={() => handleEditClick(item)}
@@ -2321,39 +2480,34 @@ const AddPurchaseBill = () => {
                             <DeleteIcon
                               style={{ color: "var(--color6)" }}
                               className="delete-icon bg-none"
-
-                              onClick={() => { deleteOpen(item.id) }}
+                              onClick={() => deleteOpen(item.id)}
                             />
                             {item.iteam_name}
                           </td>
-                          <td>{item.weightage}</td>
-                          <td>{item.hsn_code}</td>
-                          <td>{item.batch_number}</td>
-                          <td>{item.expiry}</td>
-                          <td>{item.mrp}</td>
-                          <td>{item.qty}</td>
-                          <td>{item.free_qty}</td>
-                          <td>{item.ptr}</td>
-                          <td>{item.discount}</td>
-                          <td>{item.scheme_account}</td>
-                          <td>{item.base_price}</td>
-                          <td>{item.gst}</td>
-                          <td>{item.location}</td>
-                          <td>{item.net_rate}</td>
-                          <td>{item.margin}</td>
-                          <td>{item.total_amount}</td>
+                          <td style={{ paddingLeft: "22px", width: "85px" }}>{item.weightage}</td>
+                          <td style={{ paddingLeft: "22px", width: "105px" }}>{item.batch_number}</td>
+                          <td style={{ paddingLeft: "22px", width: "105px" }}>{item.expiry}</td>
+                          <td style={{ paddingLeft: "22px", width: "95px" }}>{item.mrp}</td>
+                          <td style={{ paddingLeft: "22px", width: "85px" }}>{item.qty}</td>
+                          <td style={{ paddingLeft: "22px", width: "65px" }}>{item.free_qty}</td>
+                          <td style={{ paddingLeft: "22px", width: "95px" }}>{item.ptr}</td>
+                          <td style={{ paddingLeft: "22px", width: "70px" }}>{item.discount}</td>
+                          <td style={{ paddingLeft: "22px", width: "95px" }}>{item.base_price}</td>
+                          <td style={{ paddingLeft: "22px", width: "70px" }}>{item.gst}</td>
+                          <td style={{ paddingLeft: "22px", width: "95px" }}>{item.location}</td>
+                          <td style={{ paddingLeft: "22px", width: "95px" }}>{item.net_rate}</td>
+                          <td style={{ paddingLeft: "22px", width: "108px" }}>{item.margin}</td>
+                          <td style={{ paddingLeft: "22px", width: "107px" }}>{item.total_amount}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </>
-
               </div>
             </div>
           </div>
         </div>
-        {/*<============================================================================== total and other details  =============================================================================> */}
-
+        {/*<====================================================================== total and other details  =====================================================================> */}
         <div
           className=""
           style={{
@@ -2391,9 +2545,9 @@ const AddPurchaseBill = () => {
               style={{ display: "flex" }}
             >
               <label className="font-bold">Total Qty : </label>
-              <span style={{ fontWeight: 600 }}>   {totalQty ? totalQty : 0} +{" "}
+              <span style={{ fontWeight: 600 }}>   {totalQty ? totalQty : 0 } +&nbsp;
                 <span className="">
-                  {totalFree ? totalFree : 0} Free{" "}
+                  { totalFree ? totalFree : 0 } Free
                 </span></span>
             </div>
             <div
@@ -2561,7 +2715,7 @@ const AddPurchaseBill = () => {
             </Modal>
           </div>
         </div>
-        {/*<============================================================================== CN amount PopUp Box  =============================================================================> */}
+        {/*<===================================================================== CN amount PopUp Box  ====================================================================> */}
 
         <Dialog open={openAddPopUp}>
           <DialogTitle id="alert-dialog-title" className="secondary">
@@ -2681,7 +2835,7 @@ const AddPurchaseBill = () => {
             </Button>
           </DialogActions>
         </Dialog>
-        {/*<============================================================================== Bulk Import csv =============================================================================> */}
+        {/*<========================================================================= Bulk Import csv ========================================================================> */}
 
         <Dialog open={openFile} className="custom-dialog">
           <DialogTitle className="primary">Import Item</DialogTitle>
@@ -2701,15 +2855,27 @@ const AddPurchaseBill = () => {
           </IconButton>
           <DialogContent>
             <DialogContentText id="alert-dialog-description">
-              <div className="primary">Item File Upload</div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "15px",
-                  flexDirection: "column",
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: "15px", marginBlock: "20px" }}>
+                {/* Software Selection */}
+                <FormControl size="small" sx={{ width: 200 }}>
+                  <InputLabel>Select Software</InputLabel>
+                  <Select
+                    value={importConpany}
+                    onChange={(event) => setImportConpany(event.target.value)}
+                    label="Select Software"
+                    autoFocus
+                  >
+                    {Object.keys(options).map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* File Upload */}
                 <div>
+
                   <input
                     className="File-upload"
                     type="file"
@@ -2717,20 +2883,22 @@ const AddPurchaseBill = () => {
                     id="file-upload"
                     onChange={handleFileSelect}
                   />
-                  <span className="errorFile">*select only .csv File.</span>
+
                 </div>
-                <div>
-                  <Button
-                    onClick={handleDownload}
-                    style={{ backgroundColor: "#3f6212", color: "white" }}
-                  >
-                    <CloudDownloadIcon className="mr-2" />
-                    Download Sample File
-                  </Button>
-                </div>
+
+                {/* Download Button */}
+
               </div>
+              <Button
+                onClick={handleDownload}
+                style={{ backgroundColor: "#3f6212", color: "white" }}
+              >
+                <CloudDownloadIcon className="mr-2 " />
+                Download Sample
+              </Button>
             </DialogContentText>
           </DialogContent>
+
           <DialogActions>
             <Button
               autoFocus
@@ -2743,7 +2911,132 @@ const AddPurchaseBill = () => {
           </DialogActions>
         </Dialog>
 
-        {/*<============================================================================== add item  PopUp Box  =============================================================================> */}
+        {/*<======================================================================== add Distributor PopUp Box  =======================================================================> */}
+
+        <Dialog open={openAddDistributorPopUp}>
+          <DialogTitle id="alert-dialog-title" className="primary">
+            Add Distributor
+          </DialogTitle>
+          <IconButton
+            aria-label="close"
+            onClick={() => setOpenAddDistributorPopUp(false)}
+            sx={{
+              position: "absolute",
+              right: 8,
+              top: 8,
+              color: (theme) => theme.palette.grey[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+          <DialogContent>
+            <DialogContentText id="alert-dialog-description">
+              <div className="bg-white">
+                <div
+                  className="mainform bg-white rounded-lg"
+                  style={{ padding: "20px" }}
+                >
+                  <div className="row">
+                    <div className="fields add_new_item_divv">
+                      <label className="label secondary">Distributor Name</label>
+                      <TextField
+                        autoComplete="off"
+                        id="outlined-number"
+                        size="small"
+                        value={addDistributorName}
+                        autoFocus
+                        onChange={(e) =>
+                          setAddDistributorName(e.target.value.toUpperCase())
+                        }
+                        inputRef={(el) => (inputRefs.current[16] = el)}
+                        onKeyDown={(e) => handleKeyDown(e, 16)}
+
+
+                      />
+                    </div>
+                    <div className="fields add_new_item_divv">
+                      <label className="label secondary">Distributor GSTIN Number</label>
+                      <TextField
+                        autoComplete="off"
+                        id="outlined-number"
+                        size="small"
+                        value={addDistributorNo}
+                        autoFocus
+                        onChange={(e) =>
+                          setAddDistributorNo(e.target.value.toUpperCase())
+                        }
+                        inputRef={(el) => (inputRefs.current[17] = el)}
+                        onKeyDown={(e) => handleKeyDown(e, 17)}
+
+
+                      />
+                    </div>
+
+                  </div>
+                  <div className="row">
+                    <div className="fields add_new_item_divv">
+                      <label className="label  secondary">Mobile Number</label>
+                      <TextField
+                        autoComplete="off"
+                        id="outlined-number"
+                        type="number"
+                        size="small"
+                        value={addDistributorMobile}
+                        onChange={(e) => setAddDistributorMobile(Number(e.target.value))}
+                        inputRef={(el) => (inputRefs.current[18] = el)}
+                        onKeyDown={(e) => handleKeyDown(e, 18)}
+                      />
+                    </div>
+                    <div className="fields add_new_item_divv">
+                      <label className="label secondary">Adress</label>
+                      <TextField
+                        autoComplete="off"
+                        id="outlined-number"
+
+                        size="small"
+                        value={addDistributorAddress}
+                        onChange={(e) => setAddDistributorAddress(e.target.value)}
+                        inputRef={(el) => (inputRefs.current[19] = el)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault(); // Prevent form submission
+                            handleAddNewDistributor();
+                          }
+                        }}
+                      />
+                    </div>
+
+                  </div>
+                  <div
+                    className="row"
+                    style={{
+                      justifyContent: "flex-end",
+                      paddingRight: "4px",
+                      paddingTop: "8%",
+                    }}
+                  >
+                    <Button
+                      variant="contained"
+                      sx={{
+                        backgroundColor: "#3f6212",
+                        "&:hover": {
+                          backgroundColor: "#3f6212",
+                        },
+                      }}
+                      onClick={() => handleAddNewDistributor()}
+                      ref={addButtonref}
+                    >
+                      <ControlPointIcon className="mr-2" />
+                      Add Distributor
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </DialogContentText>
+          </DialogContent>
+        </Dialog>
+
+        {/*<======================================================================== add item PopUp Box  =======================================================================> */}
 
         <Dialog open={openAddItemPopUp}>
           <DialogTitle id="alert-dialog-title" className="primary">
@@ -2776,9 +3069,14 @@ const AddPurchaseBill = () => {
                         id="outlined-number"
                         size="small"
                         value={addItemName}
+                        autoFocus
                         onChange={(e) =>
                           setAddItemName(e.target.value.toUpperCase())
                         }
+                        inputRef={(el) => (inputRefs.current[13] = el)}
+                        onKeyDown={(e) => handleKeyDown(e, 13)}
+
+
                       />
                     </div>
                     <div className="fields add_new_item_divv">
@@ -2790,6 +3088,8 @@ const AddPurchaseBill = () => {
                         size="small"
                         value={addBarcode}
                         onChange={(e) => setAddBarcode(Number(e.target.value))}
+                        inputRef={(el) => (inputRefs.current[14] = el)}
+                        onKeyDown={(e) => handleKeyDown(e, 14)}
                       />
                     </div>
                   </div>
@@ -2803,6 +3103,13 @@ const AddPurchaseBill = () => {
                         size="small"
                         value={addUnit}
                         onChange={(e) => setAddUnit(e.target.value)}
+                        inputRef={(el) => (inputRefs.current[15] = el)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault(); // Prevent form submission
+                            handleAddNewItem();
+                          }
+                        }}
                       />
                     </div>
                     <div className="fields add_new_item_divv">
@@ -2833,6 +3140,7 @@ const AddPurchaseBill = () => {
                         },
                       }}
                       onClick={handleAddNewItem}
+                      ref={addButtonref}
                     >
                       <ControlPointIcon className="mr-2" />
                       Add New Item
@@ -2844,7 +3152,8 @@ const AddPurchaseBill = () => {
           </DialogContent>
         </Dialog>
 
-        {/*<==============================================================================  Delete PopUP   =============================================================================> */}
+
+        {/*<==========================================================================  Delete PopUP   =========================================================================> */}
 
         <div
           id="modal"
@@ -2902,7 +3211,7 @@ const AddPurchaseBill = () => {
           </div>
         </div>
 
-        {/*<============================================================================== Leave page  PopUp Box  =============================================================================> */}
+        {/*<======================================================================== Leave page  PopUp Box  =======================================================================> */}
 
         <Prompt
           when={unsavedItems}
@@ -2953,109 +3262,4 @@ const AddPurchaseBill = () => {
     </>
   );
 };
-
 export default AddPurchaseBill;
-
-/*<================================================================================ temp  handleBarcodeItem logic =================================================================================> */
-
-// const handleBarcodeItem = async () => {
-//   setUnsavedItems(true)
-//   let data = new FormData();
-//   data.append("random_number", localStorage.getItem("RandomNumber"));
-//   data.append("weightage", unit ? Number(unit) : 1);
-//   data.append("batch_number", batch ? batch : 0);
-//   data.append("expiry", expiryDate);
-//   data.append("mrp", mrp ? mrp : 0);
-//   data.append("qty", qty ? qty : 0);
-//   data.append("free_qty", free ? free : 0);
-//   data.append("ptr", ptr ? ptr : 0);
-//   data.append("discount", disc ? disc : 0);
-//   data.append("scheme_account", schAmt ? schAmt : 0);
-//   data.append("base_price", base ? base : 0);
-//   data.append("gst", gst.id);
-//   data.append("location", loc ? loc : 0);
-//   data.append("margin", margin ? margin : 0);
-//   data.append("net_rate", netRate ? netRate : 0);
-//   data.append("id", selectedEditItemId ? selectedEditItemId : 0);
-//   data.append("item_id", ItemId);
-//   data.append("unit_id", Number(0));
-//   data.append("user_id", userId);
-//   data.append("id", selectedEditItemId ? selectedEditItemId : 0);
-//   data.append("total_amount", ItemTotalAmount ? ItemTotalAmount : 0);
-
-//   const params = {
-//     id: selectedEditItemId,
-//   };
-//   try {
-//     const response = await axios.post("item-purchase", data, {
-//       headers: {
-//         Authorization: `Bearer ${token}`,
-//       },
-//     });
-
-//     setItemTotalAmount(0);
-//     setDeleteAll(true);
-//     itemPurchaseList();
-//     setUnit("");
-//     setBatch("");
-//     setExpiryDate("");
-//     setMRP("");
-//     setQty("");
-//     setFree("");
-//     setPTR("");
-//     setGst("");
-//     setDisc("");
-//     setBase("");
-//     setNetRate("");
-//     setSchAmt("");
-//     setBatch("");
-//     setMargin("");
-//     setLoc("");
-
-//     if (ItemTotalAmount <= finalCnAmount) {
-//       setFinalCnAmount(0);
-//       setSelectedRows([]);
-//       setCnTotalAmount({});
-//     }
-//     // setNetAmount(totalAmount)
-//     // handleCalNetAmount()
-//     setIsEditMode(false);
-//     setSelectedEditItemId(null);
-//     setBarcode("")
-//     setValue("")
-//     // Reset Autocomplete field
-//     setValue("");
-//     setSearchItem("");
-//     // setAutocompleteDisabled(false);
-//   } catch (e) {
-//   }
-// }
-
-/*<================================================================================ temp  handle Add button logic =================================================================================> */
-
-{/* <tr>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td></td>
-                          <td>
-                            <Button
-                              variant="contained"
-                              style={{ backgroundColor: "var(--color1)" }}
-                              onClick={handleAddButtonClick}
-                            >
-                              <ControlPointIcon className="mr-2" />
-                              {isEditMode ? "Edit" : "Add"}
-                            </Button>
-                          </td>
-                        </tr> */}

@@ -132,7 +132,10 @@ const PaymentList = () => {
 
     const openBillDetails = () => {
         const newErrors = {};
-        if (!distributorValue) newErrors.distributorValue = 'Distributor is required';
+        if (!distributorValue){
+             newErrors.distributorValue = 'Distributor is required';
+            toast.error(newErrors.distributorValue )
+            }
         setErrors(newErrors);
         const isValid = Object.keys(newErrors).length === 0;
         if (isValid) {
@@ -444,7 +447,8 @@ const PaymentList = () => {
     return (
         <>
             <Header />
-            <ToastContainer
+              <ToastContainer
+
                 position="top-right"
                 autoClose={5000}
                 hideProgressBar={false}
@@ -488,7 +492,7 @@ const PaymentList = () => {
 
                                         {...params} label="Search Distributor Name" />}
                                 />
-                                {!distributorValue && <span style={{ color: 'red', fontSize: '12px' }}>{errors.distributorValue}</span>}
+                                {/* {!distributorValue && <span style={{ color: 'red', fontSize: '12px' }}>{errors.distributorValue}</span>} */}
                             </div>
                             <div style={{ justifyContent: "end", display: "flex" }}>
                                 <Button className="serch_btn_ad" style={{ background: 'var(--color1)' }} variant="contained" onClick={openBillDetails}>Search</Button>

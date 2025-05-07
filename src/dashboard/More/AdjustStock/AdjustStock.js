@@ -371,7 +371,8 @@ const AdjustStock = () => {
     return (
         <>
             <Header />
-            <ToastContainer
+              <ToastContainer
+
                 position="top-right"
                 autoClose={5000}
                 hideProgressBar={false}
@@ -765,7 +766,7 @@ const AdjustStock = () => {
                                                         value={stockAdjust}
                                                         onChange={(e) => {
                                                             const value = parseFloat(e.target.value);
-                                                            setStockAdjust(value > 0 ? -value : value);
+                                                            setStockAdjust(value );
                                                         }}
                                                     />
                                                 </div>

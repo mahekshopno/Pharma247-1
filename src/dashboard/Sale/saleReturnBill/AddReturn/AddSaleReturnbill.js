@@ -25,7 +25,8 @@ import { VscDebugStepBack } from "react-icons/vsc";
 import { IoMdClose } from "react-icons/io";
 import { FaCaretUp } from "react-icons/fa6";
 import { Modal } from "flowbite-react";
-
+import SaveIcon from '@mui/icons-material/Save';
+import SaveAsIcon from '@mui/icons-material/SaveAs';
 const Salereturn = () => {
     const token = localStorage.getItem("token")
     const inputRef1 = useRef();
@@ -69,7 +70,7 @@ const Salereturn = () => {
     const [loc, setLoc] = useState('')
     const [randomNumber, setRandomNumber] = useState(null);
     const [base, setBase] = useState('')
-    const tableRef = useRef(null);
+    // const tableRef = useRef(null);
     const [unit, setUnit] = useState('')
     const [isEditMode, setIsEditMode] = useState(false);
     const [totalAmount, setTotalAmount] = useState(0);
@@ -108,12 +109,53 @@ const Salereturn = () => {
     const [nextPath, setNextPath] = useState("");
     const [errors, setErrors] = useState({});
     const [uniqueId, setUniqueId] = useState([]);
+    const [isOpen, setIsOpen] = useState(false);
 
+    const [billSaveDraft, setBillSaveDraft] = useState('0');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const toggleModal = () => {
         setIsModalOpen(!isModalOpen);
     };
+    /*<============================================================================ Input ref on keydown enter ===================================================================> */
+
+    const [selectedIndex, setSelectedIndex] = useState(-1); // Index of selected row
+    const tableRef = useRef(null); // Reference for table container
+    const [isAutocompleteDisabled, setAutocompleteDisabled] = useState(true);
+
+    const inputRefs = useRef([]);
+    const dateRefs = useRef([]);
+
+    const submitButtonRef = useRef(null);
+    const addButtonref = useRef(null);
+
+    /*<============================================================ disable autocomplete to focus when tableref is focused  ===================================================> */
+
+
+
+    const handleKeyPress = (e) => {
+        if (!saleItems?.sales_item?.length) return;
+
+        const isInputFocused = document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA";
+        if (isInputFocused) return;
+
+        e.preventDefault(); // Prevent default scrolling behavior
+
+        if (e.key === "ArrowDown") {
+            setSelectedIndex((prev) => Math.min(prev + 1, saleItems.sales_item.length - 1));
+        } else if (e.key === "ArrowUp") {
+            setSelectedIndex((prev) => Math.max(prev - 1, 0));
+        } else if (e.key === "Enter" && selectedIndex !== -1) {
+            const selectedRow = saleItems.sales_item[selectedIndex];
+            if (!selectedRow) return;
+            handleEditClick(selectedRow);
+        }
+    };
+
+    useEffect(() => {
+        document.addEventListener("keydown", handleKeyPress);
+        return () => document.removeEventListener("keydown", handleKeyPress);
+    }, [saleItems, selectedIndex]);
 
     useEffect(() => {
         if (searchDoctor) {
@@ -339,6 +381,7 @@ const Salereturn = () => {
         if (!customer) { newErrors.customer = 'Customer is required'; toast.error('Customer is required'); }
         if (!startDate) { newErrors.startDate = 'startDate is required'; toast.error('Start Date is required'); }
         if (!endDate) { newErrors.endDate = 'endDate is required'; toast.error('End Date is required'); }
+
         // setErrors(newErrors);
         const isValid = Object.keys(newErrors).length === 0;
         if (isValid) {
@@ -349,7 +392,7 @@ const Salereturn = () => {
     const getSaleItemList = async (value) => {
         let data = new FormData();
         data.append('customer_id', customer.id ? customer.id : '');
-        data.append('start_date', startDate.format('YYYY-MM-DD') ? endDate.format('YYYY-MM-DD') : '');
+        data.append('start_date', startDate.format('YYYY-MM-DD') ? startDate.format('YYYY-MM-DD') : '');
         data.append('end_date', endDate.format('YYYY-MM-DD') ? endDate.format('YYYY-MM-DD') : '');
         data.append('search', value ? value : '');
         const params = {
@@ -360,7 +403,7 @@ const Salereturn = () => {
         setIsLoading(true);
         try {
             await axios.post("sales-return-iteam-list", data, {
-                params: params,
+                // params: params,
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -466,7 +509,7 @@ const Salereturn = () => {
         };
     }
 
-    const handleSubmit = () => {
+    const handleSubmit = (draft) => {
 
         const newErrors = {};
         if (!customer) {
@@ -480,10 +523,10 @@ const Salereturn = () => {
         if (Object.keys(newErrors).length > 0) {
             return;
         }
-        submitSaleReturnData();
+        submitSaleReturnData(draft);
     }
 
-    const submitSaleReturnData = async () => {
+    const submitSaleReturnData = async (draft) => {
         const hasUncheckedItems = saleItems?.sales_item.every(item => item.iss_check === false)
         if (hasUncheckedItems) {
             toast.error('Please select at least one item');;
@@ -512,6 +555,7 @@ const Salereturn = () => {
             data.append('cgst', '0');
             data.append('sgst', '0');
             data.append('product_list', JSON.stringify(saleItems.sales_item) ? JSON.stringify(saleItems.sales_item) : '');
+            data.append("draft_save", !draft ? "1" : draft);
 
             try {
                 await axios.post("sales-return-create", data, {
@@ -666,7 +710,8 @@ const Salereturn = () => {
         <>
             <div>
                 <Header />
-                <ToastContainer
+                  <ToastContainer
+
                     position="top-right"
                     autoClose={5000}
                     hideProgressBar={false}
@@ -703,60 +748,79 @@ const Salereturn = () => {
                                     ))}
                                 </Select>
                                 {/* <Button variant="contained" sx={{ textTransform: 'none', background: "var(--color1)" }}> <FiPrinter className="w-4 h-4 mr-1" />Save & Print</Button> */}
-                                <Button variant="contained" className="payment_btn_divv" sx={{ textTransform: 'none', background: "var(--color1)" }} onClick={handleSubmit}> Submit</Button>
+                                <Button variant="contained" className="payment_btn_divv" sx={{ textTransform: 'none', background: "var(--color1)" }} onClick={() => setIsOpen(!isOpen)}> Submit</Button>
+                                {isOpen && (
+                                    <div className="absolute right-0 top-28 w-32 bg-white shadow-lg user-icon mr-4 ">
+                                        <ul className="transition-all ">
 
+                                            <li
+                                                onClick={() => {
+                                                    setBillSaveDraft("1")
+                                                    handleSubmit("1")
+                                                }}
+                                                className=" border-t border-l border-r border-[var(--color1)] px-4 py-2 cursor-pointer text-base font-medium flex gap-2 hover:text-[white] hover:bg-[var(--color1)] flex  justify-around"
+                                            >
+                                                <SaveIcon />
+
+
+                                                Save
+                                            </li>
+                                            <li
+                                                onClick={() => {
+                                                    setBillSaveDraft("0")
+                                                    handleSubmit("0")
+                                                }}
+                                                className="border border-[var(--color1)] px-4 py-2 cursor-pointer text-base font-medium flex gap-2 hover:text-[white] hover:bg-[var(--color1)] flex  justify-around"
+                                            >
+                                                <SaveAsIcon />
+
+                                                Draft
+                                            </li>
+                                        </ul>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="border-b">
                             <div className="firstrow flex">
-                                <div className="detail mt-1 custommedia" >
-                                    <div className="detail  p-2 rounded-md" style={{ background: "var(--color1)", width: "100%" }} >
-                                        <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                            <div className="heading" style={{ color: 'white', fontWeight: "500", alignItems: "center", marginLeft: "15px" }}>Bill No <span style={{ marginLeft: '35px' }}> Bill Date</span> </div>
-                                            <div className="flex gap-1">
-                                                <div style={{ color: 'white', fontWeight: "500", alignItems: "center", marginTop: '8px', marginLeft: "15px", fontWeight: "bold", width: '19%' }}>{localStorage.getItem('SaleRetunBillNo')}  </div>
-                                                <div style={{ color: 'white', fontWeight: "500", alignItems: "center", marginTop: '8px', fontWeight: "bold" }}>|</div>
-                                                <DatePicker
-                                                    color="white"
-                                                    width="100%"
-                                                    value={selectedDate}
-                                                    onChange={(newDate) => setSelectedDate(newDate)}
-                                                    format="DD/MM/YYYY"
-                                                    maxDate={dayjs()}
-                                                    sx={{
-                                                        '& .MuiOutlinedInput-root': {
-                                                            '& fieldset': {
-                                                                border: 'none',
-                                                            },
-                                                            '&:hover fieldset': {
-                                                                border: 'none',
-                                                            },
-                                                            '&.Mui-focused fieldset': {
-                                                                border: 'none',
-                                                            },
-                                                            '& .MuiInputBase-input': {
-                                                                color: 'white',
-                                                                fontWeight: "bold"
-                                                            },
-                                                        },
-                                                        '& .MuiSvgIcon-root': {
-                                                            color: 'white',
-                                                            width: '40px',
-                                                            height: '40px',
-                                                            backgroundColor: "#6aa420",
-                                                            padding: "10px",
-                                                            borderRadius: "50%",
-                                                            alignItems: "center"
-                                                        },
-                                                        '& .MuiAutocomplete-input': {
-                                                            padding: "0.5px 4px 7.5px 5px"
-                                                        }
-                                                    }}
-                                                />
-                                            </div>
-                                        </LocalizationProvider>
+                              
+                                <div className="detail custommedia" style={{
+                                    display: "flex",
+                                    flexDirection: "column",
 
-                                    </div>
+                                }}>
+                                    <span className="heading mb-2">Bill No</span>
+                                    <TextField
+                                        autoComplete="off"
+                                        id="outlined-number"
+                                        type='number'
+                                        size="small"
+                                        value={localStorage.getItem('SaleRetunBillNo')} 
+                                        disabled
+
+                                    />
+                                    {error.billNo && <span style={{ color: 'red', fontSize: '12px' }}>{error.billNo}</span>}
+
+
+                                </div>
+                                <div style={{ padding: "0 5px", }}>
+                                    <span className="heading mb-2 title" style={{ fontWeight: "500", fontSize: "17px", color: "var(--color1)" }}>End Date</span>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs} >
+                                        <DatePicker
+                                            value={endDate}
+                                            onChange={(newDate) => {
+                                                setEndDate(newDate);
+                                                setUnsavedItems(true);
+                                            }}
+                                            format="DD/MM/YYYY"
+                                            sx={{
+                                                width: "100%",
+                                                "& .MuiInputBase-root": {
+                                                    height: "40px", 
+                                                },
+                                            }}
+                                        />
+                                    </LocalizationProvider>
                                 </div>
                                 <div className="detail custommedia" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
                                     <span className="heading mb-2 title" style={{ fontWeight: "500", fontSize: "17px", color: "var(--color1)", whiteSpace: "nowrap" }}>Customer Mobile / Name</span>
@@ -817,7 +881,7 @@ const Salereturn = () => {
                                                             {params.InputProps.endAdornment}
                                                         </>
                                                     ),
-                                                    style: { height: 53 },
+                                                    style: { height: 40 },
                                                 }}
                                                 sx={{
                                                     '& .MuiInputBase-input::placeholder': {
@@ -830,7 +894,7 @@ const Salereturn = () => {
                                     />
                                     {error.customer && <span style={{ color: 'red', fontSize: '14px' }}>{error.customer}</span>}
                                 </div>
-                                <div className="detail custommedia" style={{ display: 'flex', width: '100%' }}>
+                                <div className="detail custommedia" style={{ display: 'flex', width: '40%' }}>
                                     <span className="heading mb-2 title" style={{ fontWeight: "500", fontSize: "17px", color: "var(--color1)", whiteSpace: "nowrap" }}>Doctor </span>
                                     <Autocomplete
                                         value={doctor}
@@ -881,7 +945,7 @@ const Salereturn = () => {
                                                             {params.InputProps.endAdornment}
                                                         </>
                                                     ),
-                                                    style: { height: 53 },
+                                                    style: { height: 40 },
                                                 }}
                                                 sx={{
                                                     '& .MuiInputBase-input::placeholder': {
@@ -909,7 +973,7 @@ const Salereturn = () => {
                                                     sx={{
                                                         width: "100%",
                                                         "& .MuiInputBase-root": {
-                                                            height: "53px", // Set height here
+                                                            height: "40px",
                                                         },
                                                     }}
                                                 />
@@ -929,7 +993,7 @@ const Salereturn = () => {
                                                     sx={{
                                                         width: "100%",
                                                         "& .MuiInputBase-root": {
-                                                            height: "53px", // Set height here
+                                                            height: "40px", // Set height here
                                                         },
                                                     }}
                                                 />
@@ -944,7 +1008,7 @@ const Salereturn = () => {
                                             style={{
                                                 // minHeight: '41px',
                                                 alignItems: "center",
-                                                height: '53px',
+                                                height: '40px',
                                                 // marginTop: "7px",
                                                 background: "var(--color1)"
                                             }}
@@ -954,25 +1018,6 @@ const Salereturn = () => {
                                         </Button>
                                     </div>
                                 </div>
-
-                                {/* <div className="detail" style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span className="heading mb-2 title" style={{ fontWeight: "500", fontSize: "17px", color: "var(--color1)" }}>Address</span>
-
-                                    <TextField
-                 autoComplete="off" id="outlined-basic"
-                                        value={address}
-                                        onChange={(e) => { setAddress(e.target.value) }}
-                                        sx={{
-                                            width: 300,
-                                            '& .MuiInputBase-root': {
-                                                // height: 55,
-                                                // fontSize: '1.25rem',
-                                            },
-                                            '& .MuiAutocomplete-inputRoot': {
-                                                // padding: '10px 14px',
-                                            },
-                                        }} variant="outlined" />
-                                </div> */}
 
 
                                 <div className="scroll-two">
@@ -1134,18 +1179,6 @@ const Salereturn = () => {
                                                             }}
                                                         />
                                                     </td >
-                                                    {/* <td>
-                                                    <TextField
-                 autoComplete="off"
-                                                        id="outlined-number"
-                                                        sx={{ width: '80px' }}
-                                                        size="small"
-                                                        inputRef={inputRef6}
-                                                        onKeyDown={handleKeyDown}
-                                                        value={order}
-                                                        onChange={(e) => { setOrder(e.target.value) }}
-                                                    />
-                                                </td> */}
 
                                                     <td className="td-up ">
                                                         <TextField
@@ -1192,161 +1225,56 @@ const Salereturn = () => {
                                                         <Button variant="contained" marginRight="20px" onClick={editReturnItem} style={{ backgroundColor: "var(--color1)" }}>< BorderColorIcon className="w-7 h-6 text-white  p-1 cursor-pointer" />Edit</Button>
                                                     </td>
                                                 </tr>
-                                                {saleItems.sales_item.length > 0 ?
-                                                    <>
-                                                        {saleItems?.sales_item?.map(item => (
-                                                            <tr key={item.id} className="item-List border-b border-gray-400 "
-                                                                onClick={(event) => handleEditClick(item, event.target)} style={{ whiteSpace: 'nowrap' }}                        >
-                                                                <td style={{
-                                                                    display: 'flex', gap: '8px', alignItems: "center"
-                                                                }}>
-                                                                    <td>
-                                                                        <Checkbox
-                                                                            sx={{
-                                                                                color: "var(--color2)", // Color for unchecked checkboxes
-                                                                                '&.Mui-checked': {
-                                                                                    color: "var(--color1)", // Color for checked checkboxes
-                                                                                },
-                                                                            }}
-                                                                            key={item.id}
-                                                                            checked={item?.iss_check}
-                                                                            onClick={(event) => {
-                                                                                event.stopPropagation();
-                                                                            }}
-                                                                            onChange={(event) => {
-                                                                                handleChecked(item.id, event.target.unc);
 
-                                                                            }}
-                                                                        />
-                                                                    </td>
-                                                                    < BorderColorIcon color="primary" className="cursor-pointer" onClick={() => handleEditClick(item)} />
-                                                                    {/* <DeleteIcon className="delete-icon" onClick={() => deleteOpen(item.id)} /> */}
-                                                                    {item.iteam_name}
-                                                                </td>
-                                                                <td className="td-bottom"  >{item.unit}</td>
-                                                                <td className="td-bottom"> {item.batch}</td>
-                                                                <td className="td-bottom"> {item.exp}</td>
-                                                                <td className="td-bottom"> {item.mrp}</td>
-                                                                <td className="td-bottom"> {item.base}</td>
-                                                                <td className="td-bottom"> {item.gst}</td>
-                                                                <td className="td-bottom"> {item.qty}</td>
-                                                                {/* className="td-bottom"  <td>{item.order}</td> */}
-                                                                <td className="td-bottom"> {item.location}</td>
-                                                                <td className="td-bottom">{item.net_rate}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </> :
-                                                    <tr>
-                                                        <td colSpan={12} style={{ textAlign: 'center', fontSize: '16px', fontWeight: 600 }}>No record found</td>
-                                                    </tr>
-                                                }
 
                                             </>)}
 
                                         </tbody>
                                     </table>
+                                    <>
+                                        <table className="p-30 border border-indigo-600 w-full border-collapse custom-table"
+                                            ref={tableRef} tabIndex={0}>
+                                            <tbody>
+                                                {saleItems?.sales_item?.map((item, index) => (
+                                                    <tr key={item.id}
+                                                        className={`cursor-pointer ${index === selectedIndex ? "highlighted-row" : ""}`}
+                                                        onClick={(event) => {
+                                                            handleEditClick(item);
+                                                            setSelectedIndex(index);
+                                                        }}
+                                                        style={{ whiteSpace: 'nowrap' }} >
+                                                        <td style={{ display: 'flex', gap: '8px', alignItems: "center" }}>
+                                                            <Checkbox
+                                                                sx={{
+                                                                    color: "var(--color2)",
+                                                                    '&.Mui-checked': {
+                                                                        color: "var(--color1)",
+                                                                    },
+                                                                }}
+                                                                checked={item?.iss_check}
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                onChange={(event) => handleChecked(item.id, event.target.checked)}
+                                                            />
+                                                            <BorderColorIcon color="primary" className="cursor-pointer" onClick={() => handleEditClick(item)} />
+                                                            {item.iteam_name}
+                                                        </td>
+                                                        <td className="td-bottom">{item.unit}</td>
+                                                        <td className="td-bottom">{item.batch}</td>
+                                                        <td className="td-bottom">{item.exp}</td>
+                                                        <td className="td-bottom">{item.mrp}</td>
+                                                        <td className="td-bottom">{item.base}</td>
+                                                        <td className="td-bottom">{item.gst}</td>
+                                                        <td className="td-bottom">{item.qty}</td>
+                                                        <td className="td-bottom">{item.location}</td>
+                                                        <td className="td-bottom">{item.net_rate}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </>
                                 </div>
                             </div>
 
-                            {/* {saleItems?.sales_item?.length > 0 && (
-                                <div className="flex gap-10 justify-end mt-4 flex-wrap mr-5"  >
-                                    <div style={{ display: 'flex', gap: '25px', flexDirection: 'column' }}>
-                                        <div>
-                                            <label className="font-bold">Total GST : </label>
-                                        </div>
-                                        <div>
-                                            <label className="font-bold">Total Base : </label>
-                                        </div>
-
-                                        <div>
-                                            <label className="font-bold">Profit: </label>
-                                        </div>
-                                        <div>
-                                            <label className="font-bold">Total Net Rate : </label>
-                                        </div>
-                                    </div>
-                                    <div class="totals mr-5" style={{ display: 'flex', gap: '25px', flexDirection: 'column', alignItems: "end" }}>
-
-                                        <div class="totals mr-5" style={{ display: 'flex', gap: '25px', flexDirection: 'column', alignItems: "end" }}>
-                                            <span style={{ fontWeight: 600 }}>{totalGst || 0}</span>
-                                            <span style={{ fontWeight: 600 }}>{totalBase}</span>
-                                            <span style={{ fontWeight: 600 }}>₹ {marginNetProfit} ({Number(totalMargin).toFixed(2)} %) </span>
-                                            <span style={{ fontWeight: 600 }}>₹ {totalNetRate} </span>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '25px', flexDirection: 'column' }}>
-                                        <div>
-                                            <label className="font-bold">Total Amount : </label>
-                                        </div>
-
-                                        <div>
-                                            <label className="font-bold">Other Amount: </label>
-                                        </div>
-                                        <div>
-                                            <label className="font-bold">Round Off  : </label>
-                                        </div>
-                                        <div>
-                                            <label className="font-bold" >Net Amount : </label>
-                                        </div>
-                                    </div>
-                                    <div class="totals mr-5" style={{ display: 'flex', gap: '20px', flexDirection: 'column', alignItems: "end" }}>
-
-                                        <div>
-                                            <span style={{ fontWeight: 600 }}>{totalAmount}</span>
-                                        </div>
-                                      
-                                        <div>
-                                            <Input
-                                                value={otherAmt}
-                                                onKeyPress={(e) => {
-                                                    const value = e.target.value;
-                                                    const isMinusKey = e.key === '-';
-
-                                                    // Allow Backspace and numeric keys
-                                                    if (!/[0-9.-]/.test(e.key) && e.key !== 'Backspace') {
-                                                        e.preventDefault();
-                                                    }
-
-                                                    // Allow only one '-' at the beginning of the input value
-                                                    if (isMinusKey && value.includes('-')) {
-                                                        e.preventDefault();
-                                                    }
-                                                }}
-                                                onChange={(e) => {
-                                                    setUnsavedItems(true);
-                                                    const x = e.target.value
-                                                    const y = (x)
-
-                                                    if (-y >= totalAmount) {
-                                                        setOtherAmt((-totalAmount))
-                                                    } else {
-                                                        setOtherAmt(y)
-                                                    }
-                                                }}
-                                                size="small"
-                                                style={{
-                                                    width: "70px",
-                                                    background: "none",
-                                                    borderBottom: "1px solid gray",
-                                                    justifyItems: "end",
-                                                    outline: "none",
-                                                }} sx={{
-                                                    '& .MuiInputBase-root': {
-                                                        height: '35px',
-                                                    },
-                                                    "& .MuiInputBase-input": { textAlign: "end" }
-
-                                                }} />
-                                        </div>
-                                        <div>
-                                            <span >{!roundOff ? 0 : roundOff.toFixed(2)}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 800, fontSize: '22px' }}>{!netAmount ? 0 : netAmount}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )} */}
 
                             {saleItems?.sales_item?.length > 0 && (
                                 <div className="sale_filtr_add" style={{ background: 'var(--color1)', color: 'white', display: "flex", position: 'fixed', width: '100%', bottom: '0', left: '0', justifyContent: 'space-between', alignItems: 'center', overflow: 'auto' }}>
@@ -1493,14 +1421,10 @@ const Salereturn = () => {
                                     <div className="flex gap-5 justify-center">
                                         <button type="submit"
                                             className="px-6 py-2.5 w-44 items-center rounded-md text-white text-sm font-semibold border-none outline-none bg-red-500 hover:bg-red-600 active:bg-red-500"
-                                            onClick={() => handleDeleteItem(saleItemId)}
-                                        >Delete</button>
+                                            onClick={() => handleDeleteItem(saleItemId)}>Delete</button>
                                         <button type="button"
                                             className="px-6 py-2.5 w-44 rounded-md text-black text-sm font-semibold border-none outline-none bg-gray-200 hover:bg-gray-900 hover:text-white"
-                                            onClick={() => setIsDelete(false)}
-                                        >
-                                            Cancel
-                                        </button>
+                                            onClick={() => setIsDelete(false)}>Cancel</button>
                                     </div>
                                 </div>
                             </div>

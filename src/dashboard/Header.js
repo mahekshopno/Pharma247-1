@@ -41,10 +41,14 @@ const Header = () => {
   const [permission, setPermission] = useState([]);
   const [checkedper, setCheckedper] = useState();
   const [searchPage, setSearchPage] = useState(false);
+  const [notifications, setNotifications] = useState(false);
 
-  // const [renderPlease, setRenderPlease] = useState(0);
+  const [items, setItems] = useState({
+    topItems: ["Inbox", "Starred", "Send email", "Drafts"],
+    bottomItems: ["All mail", "Trash", "Spam"],
+  });
 
-
+  /*<=============================================================================== get permissions  ======================================================================> */
 
   useEffect(() => {
     const fetchPermissions = async () => {
@@ -53,31 +57,47 @@ const Header = () => {
     fetchPermissions();
   }, []);
 
-  // useEffect(() => {
-  //   if (renderPlease < 2) {
-
-  //     const timeout = setTimeout(() => {
-  //       setRenderPlease(renderPlease + 1);
-  //     }, 100);
-
-  //     return () => clearTimeout(timeout); // Cleanup the timeout
-  //   }
-
-  //   console.log(renderPlease,"renderPlease");
-  // }, [renderPlease]);
-
   useEffect(() => {
     setToken(localStorage.getItem("token"));
   }, [token]);
+  const userPermission = async () => {
+    let data = new FormData();
+    try {
+      await axios
+        .post("user-permission", data, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        .then((response) => {
+          const permission = response.data.data;
+          const encryptedPermission = encryptData(permission);
 
-  // useEffect(() => {
-  //   userPermission();
-  // }, []);
+          const storedPermissions = decryptData(encryptedPermission);
 
-  const toggleDropdown = () => {
-    setIsOpen(!isOpen);
+          const filteredPermissions = storedPermissions.filter((permission) => {
+            const key = Object.keys(permission)[0];
+            return permission[key] === true;
+          });
+          setPermission(filteredPermissions);
+
+          permission.forEach((item) => {
+            Object.keys(item).forEach((key) => { });
+          });
+        });
+    } catch (error) {
+      console.error("API error:", error.response.status);
+
+      if (error.response.status === 401) {
+        setIsClear(true);
+      }
+    }
   };
-  const handleProfile = () => { };
+
+
+
+  /*<=============================================================================== logout  ======================================================================> */
+
 
   const handleLogout = async () => {
     let data = new FormData();
@@ -110,25 +130,11 @@ const Header = () => {
     setIsLogout(false);
   };
 
-  // useEffect(() => {
-  //   const handleClickOutside = (event) => {
-  //     if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-  //       setIsOpen(false);
-  //     }
-  //   };
+  /*<=============================================================================== toggleDropdown  ======================================================================> */
 
-  //   document.addEventListener('mousedown', handleClickOutside);
-  //   return () => {
-  //     document.removeEventListener('mousedown', handleClickOutside);
-  //   };
-  // }, [dropdownRef]);
-
-  const [notifications, setNotifications] = useState(false);
-
-  const [items, setItems] = useState({
-    topItems: ["Inbox", "Starred", "Send email", "Drafts"],
-    bottomItems: ["All mail", "Trash", "Spam"],
-  });
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen);
+  };
 
   const toggleDrawerNotifications = (open) => (event) => {
     if (
@@ -140,55 +146,10 @@ const Header = () => {
     setNotifications(open);
   };
 
-  const userPermission = async () => {
-    let data = new FormData();
-    try {
-      await axios
-        .post("user-permission", data, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-        .then((response) => {
-          const permission = response.data.data;
-          const encryptedPermission = encryptData(permission);
-          // localStorage.setItem("Permission", encryptedPermission);
+  /*<==================================================================================== UI  ===========================================================================> */
 
-          // localStorage.setItem('Permission', JSON.stringify(permission));
-
-          const storedPermissions = decryptData(encryptedPermission);
-          // console.log('yogi',storedPermissions);
-
-          // Filter permissions to get only those with a value of true
-          const filteredPermissions = storedPermissions.filter((permission) => {
-            const key = Object.keys(permission)[0];
-            return permission[key] === true;
-          });
-          setPermission(filteredPermissions);
-
-          permission.forEach((item) => {
-            Object.keys(item).forEach((key) => {
-              // console.log(key);
-            });
-          });
-
-        });
-    } catch (error) {
-      console.error("API error:", error.response.status);
-
-      if (error.response.status === 401) {
-
-        setIsClear(true);
-      }
-    }
-  };
-
-  const handleCheck = (e) => {
-    setCheckedper(e.target.value)
-    console.log(checkedper, "checkedper")
-  }
   return (
-    <div >
+    <div>
       <div
         id="modal"
         value={IsLogout}
@@ -196,6 +157,7 @@ const Header = () => {
           }`}
       >
         <div />
+
         <div className="w-full max-w-md bg-white shadow-lg rounded-md p-4 relative">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -229,6 +191,8 @@ const Header = () => {
           </div>
         </div>
       </div>
+
+      {/*<==================================================================================== UI  ===========================================================================> */}
 
       <div
         id="modal"
@@ -284,6 +248,8 @@ const Header = () => {
               />
             </Link>
           </div>
+          {/*<==================================================================================== menu  ===========================================================================> */}
+
           <div className="w-full mx-auto flex items-center justify-between bg shadow">
             <div className="flex items-center h-12">
               <div className="flex items-center z-10">
@@ -292,15 +258,13 @@ const Header = () => {
                     {/* <TextField value={checkedper} onChange={handleCheck} /> */}
                     {hasPermission(permissions, "Item master view") && (
                       <div>
-
                         <Link to="/itemmaster">
                           <button
                             className="text-white font-semibold py-2 px-4 transition-all  primhover hover:rounded-md inline-flex items-center"
                             data-toggle="dropdown"
-
                           >
                             <span className="mr-1">Item master</span>
-                            <FaPlusCircle className="fill-current h-3 w-3 ml-1" />
+                            {/* <FaPlusCircle className="fill-current h-3 w-3 ml-1" /> */}
                           </button>
                         </Link>
                       </div>
@@ -311,11 +275,12 @@ const Header = () => {
                           className="text-white font-semibold py-2 px-4 transition-all  primhover hover:rounded-md  primhover inline-flex items-center"
                           data-toggle="dropdown"
                         >
-                          <span href="" className="mr-1">Inventory</span>
-                          <FaPlusCircle className="fill-current h-3 w-3 ml-1" />
+                          <span href="" className="mr-1">
+                            Inventory
+                          </span>
+                          {/* <FaPlusCircle className="fill-current h-3 w-3 ml-1" /> */}
                         </button>
                       </Link>
-
                     </div>
                     <div className="dropdown relative ">
                       <button
@@ -467,6 +432,8 @@ const Header = () => {
                         </span>
                       </Link>
                     </div>
+                    {/*<==================================================================================== more  ===========================================================================> */}
+
                     {/* {permissions.some(permission => permission["adjust stock create"]) && */}
                     <div className="dropdown relative">
                       <button
@@ -491,26 +458,7 @@ const Header = () => {
                             </Link>
                           </li>
                         )}
-                        {/* <li className="block border-b-2">
-                          <Link to="/more/catagory">
-                            <span
-                              className="bg-white hover:bg-[var(--color1)]   transition-all py-2 px-4 block whitespace-no-wrap  text-black hover:text-white flex relative"
-                              href=""
-                            >
-                              Category
-                            </span>
-                          </Link>
-                        </li> */}
-                        {/* <Link to="/more/package">
-                          <li className="block border-b-2">
-                            <span
-                              className="bg-white hover:bg-[var(--color1)]   transition-all py-2 px-4 block whitespace-no-wrap  text-black  hover:text-white flex"
-                              href=""
-                            >
-                              Package
-                            </span>
-                          </li>
-                        </Link> */}
+
                         <li>
                           <Link to="/more/company">
                             <li className="block border-b-2">
@@ -603,7 +551,7 @@ const Header = () => {
                               className="bg-white hover:bg-[var(--color1)]   transition-all py-2 px-4 block whitespace-no-wrap  text-black  hover:text-white flex"
                               href=""
                             >
-                              Reconciliation{" "}
+                              Reconciliation
                             </span>
                           </Link>
                         </li>
@@ -613,7 +561,7 @@ const Header = () => {
                               className="bg-white hover:bg-[var(--color1)]   transition-all py-2 px-4 block whitespace-no-wrap  text-black  hover:text-white flex"
                               href=""
                             >
-                              Loyalty Point{" "}
+                              Loyalty Point
                             </span>
                           </Link>
                         </li>
@@ -645,18 +593,46 @@ const Header = () => {
                 </div>
               </div>
             </div>
+
+            {/*<============================================================================= order dashboard  ====================================================================> */}
+
+           
+            {/*<==================================================================================== search  ===========================================================================> */}
+
             <div className="flex items-center justify-end cursor-pointer flex-end">
+            <div>
+              <div className="text-white mr-4 bg-transparent mr-2">
+
+                <div>
+                  <Link to="/onlinedashboard">
+                    <span
+                      href=""
+                      className="text-white font-semibold py-2  primhover secondary-bg rounded-md   px-4 transition-all  hover:rounded-md inline-flex items-center"
+                    >
+                      Online Orders 
+                    </span>
+                  </Link>
+                </div>
+              </div>
+            </div>
               <div className="hidden xl:flex">
                 <div>
                   <div className="text-white mr-4 bg-transparent mr-2">
-                    <IoSearch onClick={() => setSearchPage(!searchPage)} style={{ fontSize: "1.5rem" }} />
-                    {searchPage && <Search searchPage={searchPage} setSearchPage={setSearchPage} />}
-
+                    <IoSearch
+                      onClick={() => setSearchPage(!searchPage)}
+                      style={{ fontSize: "1.5rem" }}
+                    />
+                    {searchPage && (
+                      <Search
+                        searchPage={searchPage}
+                        setSearchPage={setSearchPage}
+                      />
+                    )}
                   </div>
                 </div>
-                {/* <div className="text-white mr-4 bg-transparent mr-2" >
-                  <IoIosBicycle style={{ fontSize: '1.5rem' }} />
-                </div> */}
+
+                {/*<============================================================================= notification  ====================================================================> */}
+
                 <div>
                   <Tooltip title="View Notification">
                     <div
@@ -669,11 +645,13 @@ const Header = () => {
                       />
                     </div>
                   </Tooltip>
+
                   <Drawer
                     anchor="right"
                     open={notifications}
                     onClose={toggleDrawerNotifications(false)}
                   >
+
                     {
                       <Box
                         sx={{ width: 400 }}
@@ -690,9 +668,15 @@ const Header = () => {
                           <h1 className="text-2xl p-2 primary">
                             Notifications
                           </h1>
-                          <div className="flex gap-2" style={{ alignItems: 'center' }}>
+                          <div
+                            className="flex gap-2"
+                            style={{ alignItems: "center" }}
+                          >
                             <div>
-                              <DoneAllIcon style={{ cursor: "pointer" }} className="primary" />
+                              <DoneAllIcon
+                                style={{ cursor: "pointer" }}
+                                className="primary"
+                              />
                             </div>
                             <IconButton
                               onClick={toggleDrawerNotifications(false)}
@@ -703,33 +687,10 @@ const Header = () => {
                           </div>
                         </Box>
                         <List>
-                          <ListItem disablePadding >
-                            <ListItemButton
-                            >
-                              <div >
-                                {/* {notifications.length > 0 ? (
-                                  notifications.map(item => (
-                                    <ListItem disablePadding key={item.id} sx={{ paddingX: "10px" }}>
-                                      <ListItemButton sx={{ borderBottom: "1px solid rgba(0,0,0,10%)" }} onClick={() => handleNotificationClick(item.id)}>
-                                        <div>
-                                          <p className="text-gray-700">{item.message}</p>
-                                          <div className="flex items-center">
-                                            <h6 className="text-sm flex"><MdWatchLater className="mt-1 mr-1" />{item.date}</h6>
-                                          </div>
-                                        </div>
-                                      </ListItemButton>
-                                    </ListItem>
-                                  ))
-                                ) : (
-                                  <ListItem disablePadding sx={{ paddingX: "10px" }}>
-                                    <div style={{ textAlign: 'center', fontSize: '16px', fontWeight: 600, width: '100%' }}>
-                                      Notification not found
-                                    </div>
-                                  </ListItem>
-                                )} */}
-                                <ListItem
-                                  disablePadding
-                                >
+                          <ListItem disablePadding>
+                            <ListItemButton>
+                              <div>
+                                <ListItem disablePadding>
                                   <ListItemButton>
                                     <div>
                                       <p className="text-black">
@@ -743,10 +704,7 @@ const Header = () => {
                                     </div>
                                   </ListItemButton>
                                 </ListItem>
-                                <ListItem
-                                  disablePadding
-
-                                >
+                                <ListItem disablePadding>
                                   <ListItemButton>
                                     <div>
                                       <p className="text-black">
@@ -770,6 +728,7 @@ const Header = () => {
                   </Drawer>
                 </div>
               </div>
+              {/*<==================================================================================== profile  ===========================================================================> */}
 
               <div className="hidden xl:flex">
                 <div>
@@ -786,7 +745,6 @@ const Header = () => {
                         <ul className="transition-all">
                           <Link to="/about-info">
                             <li
-                              onClick={handleProfile}
                               style={{}}
                               className="px-4 py-2 cursor-pointer text-base font-medium flex gap-2 hover:text-[white] hover:bg-[var(--color1)]"
                             >
@@ -862,6 +820,7 @@ const Header = () => {
             </div>
           </div>
         </div>
+        {/*<==================================================================================== main menu  ===========================================================================> */}
 
         <Transition
           show={isOpen}
@@ -1081,26 +1040,7 @@ const Header = () => {
                         </Link>
                       </li>
                     )}
-                    {/* <li className="block border-b border-black">
-                      <Link to="/more/catagory">
-                        <span
-                          className="bg-slate-300  py-2 px-4 pr-12 block whitespace-no-wrap  text-black flex"
-                          href=""
-                        >
-                          Category
-                        </span>
-                      </Link>
-                    </li>
-                    <Link to="/more/package">
-                      <li className="block border-b border-black">
-                        <span
-                          className="bg-slate-300  py-2 px-4 pr-12 block whitespace-no-wrap  text-black flex"
-                          href=""
-                        >
-                          Package
-                        </span>
-                      </li>
-                    </Link> */}
+
                     <li>
                       <Link to="/more/company">
                         <li className="block border-b border-black">
@@ -1180,7 +1120,7 @@ const Header = () => {
                           className="bg-slate-300  py-2 px-4 pr-12 block whitespace-no-wrap  text-black flex"
                           href=""
                         >
-                          Reconciliation{" "}
+                          Reconciliation
                         </span>
                       </Link>
                     </li>
